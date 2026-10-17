@@ -20,6 +20,7 @@ export function SubjectDetail({
   basePath,
   category,
   notice,
+  lead,
 }: {
   back: { href: string; label: string };
   eyebrow: string;
@@ -32,6 +33,8 @@ export function SubjectDetail({
   category: string | null;
   /** A short line under the header, e.g. the rain warning on outdoor areas. */
   notice?: string | null;
+  /** A full-width block between the header and the columns (e.g. medication). */
+  lead?: ReactNode;
 }) {
   const counts = new Map<string, number>();
   for (const event of events) counts.set(event.category, (counts.get(event.category) ?? 0) + 1);
@@ -62,6 +65,8 @@ export function SubjectDetail({
           <p className="mt-5 border-l-2 border-accent pl-3 text-sm text-ink-muted">{notice}</p>
         ) : null}
       </header>
+
+      {lead}
 
       <div className="mt-10 grid grid-cols-1 gap-12 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:gap-16">
         <div className="min-w-0 space-y-10">

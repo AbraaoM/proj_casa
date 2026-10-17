@@ -6,6 +6,8 @@ export type HistoryEvent = {
   category: string;
   title: string;
   done_on: string;
+  /** Exact time, when known (doses). Orders events of the same day. */
+  done_at?: string | null;
   weight_kg: number | null;
   odometer_km: number | null;
   amount_cents: number | null;
@@ -41,6 +43,13 @@ export const OIL_CATEGORY = "oil";
 /** Newest first: done_on, then created_at, then id. Stable for equal days. */
 export function compareNewestFirst(left: HistoryEvent, right: HistoryEvent): number {
   if (left.done_on !== right.done_on) return left.done_on < right.done_on ? 1 : -1;
+  const leftAt = left.done_at ?? null;
+  const rightAt = right.done_at ?? null;
+  if (leftAt !== rightAt) {
+    if (leftAt === null) return 1;
+    if (rightAt === null) return -1;
+    return Date.parse(leftAt) < Date.parse(rightAt) ? 1 : -1;
+  }
   if (left.created_at !== right.created_at) return left.created_at < right.created_at ? 1 : -1;
   return left.id < right.id ? 1 : left.id > right.id ? -1 : 0;
 }

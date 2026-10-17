@@ -1,5 +1,6 @@
 import { PageNotice } from "@/components/history/page-notice";
 import { Stat } from "@/components/history/stat";
+import { Medications } from "@/components/history/medications";
 import { SubjectDetail } from "@/components/history/subject-detail";
 import { loadSubjectDetail } from "@/lib/services/subject-pages";
 import { agePhrase, daysAgoPhrase, formatDate } from "@/lib/ui/format";
@@ -40,6 +41,7 @@ export default async function FamilyMemberPage({ params, searchParams }: Props) 
       events={data.events}
       basePath={`/familia/${member.id}`}
       category={categoria ?? null}
+      lead={<Medications medications={data.medications} today={today} />}
     />
   );
 }
