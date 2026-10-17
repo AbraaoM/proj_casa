@@ -15,6 +15,7 @@ const LABELS: Record<Domain, string> = {
 /** Sector pages. Domains without a page stay plain text. */
 const SECTOR_HREF: Partial<Record<Domain, string>> = {
   dog: "/caes",
+  house: "/casa",
   car: "/carros",
   family: "/familia",
 };
