@@ -14,7 +14,7 @@ O `.env.local` já precisa ter `DATABASE_URL`. O schema entra com:
 npm run db:migrate
 ```
 
-A versão esperada é `005_finance`.
+A versão esperada é `006_medication_doses`.
 
 ## 2. Crie a chave
 
@@ -79,7 +79,7 @@ Ligado de verdade, a resposta é `200` e o corpo tem:
 
 - `data.service` = `casa`
 - `data.database` = `ok`
-- `data.schema_version` = `005_finance`
+- `data.schema_version` = `006_medication_doses`
 - `data.timezone` = `America/Sao_Paulo`, salvo se a casa tiver outro fuso
 
 `database: "unconfigured"` significa que o processo não viu `DATABASE_URL`. `database: "schema_missing"` significa que a migration não rodou.
