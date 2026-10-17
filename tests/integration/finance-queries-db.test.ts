@@ -10,6 +10,8 @@ import { parseBillCreate } from "@/lib/domain/finance/validate";
 import { createBill, payBill } from "@/lib/services/finance/bills";
 import { getBudgetView } from "@/lib/services/finance/budgets";
 import { billsPageData } from "@/lib/services/finance-pages";
+import { payFromScreen } from "@/lib/services/finance/screen-pay";
+import { getBill } from "@/lib/services/finance/bills";
 
 const url = process.env.TEST_DATABASE_URL;
 const TODAY = "2026-10-17";
@@ -73,5 +75,29 @@ describe.skipIf(!url)("finance page queries", () => {
     const { sql: counted, stats } = counting(sql);
     await getBudgetView(counted, "2026-10");
     expect(stats.rounds).toBe(1);
+  });
+
+  test("Paguei twice on the same due date pays once", async () => {
+    const { bill } = await createBill(sql, must(parseBillCreate({ slug: "telefone_tela", name: "Telefone", amount_cents: 4990, category: "internet", next_due_date: "2026-10-17" })));
+    const first = await payFromScreen(sql, { billId: bill.id, dueDate: "2026-10-17", amount: null }, TODAY);
+    const second = await payFromScreen(sql, { billId: bill.id, dueDate: "2026-10-17", amount: null }, TODAY);
+    expect(first.ok && first.replay).toBe(false);
+    expect(second.ok && second.replay).toBe(true);
+    const rows = await sql.query<{ n: number; total: number }>(
+      "SELECT count(*)::int AS n, sum(amount_cents)::int AS total FROM fin_transactions WHERE bill_id = $1 AND voided_at IS NULL",
+      [bill.id],
+    );
+    expect(rows[0]).toEqual({ n: 1, total: 4990 });
+    expect((await getBill(sql, bill.id)).next_due_date).toBe("2026-11-17");
+  });
+
+  test("a variable bill takes the typed amount; a bad amount pays nothing", async () => {
+    const { bill } = await createBill(sql, must(parseBillCreate({ slug: "energia_tela", name: "Energia", amount_cents: 21000, amount_varies: true, category: "energia", next_due_date: "2026-10-20" })));
+    const bad = await payFromScreen(sql, { billId: bill.id, dueDate: "2026-10-20", amount: "abc" }, TODAY);
+    expect(bad.ok).toBe(false);
+    const paid = await payFromScreen(sql, { billId: bill.id, dueDate: "2026-10-20", amount: "198,73" }, TODAY);
+    expect(paid.ok && paid.result.transaction?.amount_cents).toBe(19873);
+    const rows = await sql.query<{ n: number }>("SELECT count(*)::int AS n FROM fin_transactions WHERE bill_id = $1", [bill.id]);
+    expect(rows[0]!.n).toBe(1);
   });
 });

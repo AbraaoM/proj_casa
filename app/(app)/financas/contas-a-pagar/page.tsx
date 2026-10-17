@@ -1,6 +1,8 @@
 import { attentionPhrase } from "@/lib/domain/attention";
 import { FinancePage } from "@/components/finance/finance-page";
+import { PayButton } from "@/components/finance/pay-button";
 import { SuggestedBills } from "@/components/finance/suggested-bills";
+import { centsToReaisInput } from "@/lib/domain/finance/screen-pay";
 import { PageNotice } from "@/components/history/page-notice";
 import { Stat } from "@/components/history/stat";
 import { loadBillsPage } from "@/lib/services/finance-pages";
@@ -20,7 +22,7 @@ export default async function BillsPage() {
 
   return (
     <FinancePage tab="a-pagar" title="A pagar">
-      <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-3">
         <Stat label="Por mês" value={formatMoney(monthly_total_cents)} hint="o que se repete, em média" />
         <Stat label="Ativas" value={String(active.length)} hint={overdue > 0 ? (overdue === 1 ? "1 atrasada" : `${overdue} atrasadas`) : "nenhuma atrasada"} />
       </div>
@@ -59,6 +61,11 @@ export default async function BillsPage() {
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
+                    {bill.kind !== "income" && bill.days_until_due <= 7 ? (
+                      <div className="mt-2">
+                        <PayButton billId={bill.id} dueDate={bill.next_due_date} name={bill.name} variable={bill.amount_varies} expected={centsToReaisInput(bill.amount_cents)} align="start" />
+                      </div>
+                    ) : null}
                     {bill.payments.length > 0 ? (
                       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted" aria-label={`Pagamentos de ${bill.name}`}>
                         {bill.payments.map((payment) => (
