@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BillsDue } from "@/components/finance/bills-due";
 import { BudgetBars } from "@/components/finance/budget-bars";
 import { FinancePage } from "@/components/finance/finance-page";
+import { SuggestedBills } from "@/components/finance/suggested-bills";
 import { MonthNav } from "@/components/finance/month-nav";
 import { TransactionList } from "@/components/finance/transaction-list";
 import { PageNotice } from "@/components/history/page-notice";
@@ -62,11 +63,18 @@ export default async function FinancePageRoute({ searchParams }: Props) {
               </p>
             </div>
             <BillsDue bills={summary.bills_due} />
+            <SuggestedBills bills={summary.suggested_bills} />
+            <Link href="/financas/contas-a-pagar" className={MORE}>
+              Todas as contas
+            </Link>
           </section>
 
           <section className="border-t border-line pt-4 dark:border-line-dark">
             <h2 className="text-lg">Orçamento</h2>
             <BudgetBars lines={summary.budget.lines} month={summary.month} />
+            <Link href={`/financas/orcamento?mes=${summary.month}`} className={MORE}>
+              Ver orçamento
+            </Link>
           </section>
         </div>
 

@@ -4,6 +4,8 @@ const TABS = [
   { key: "mes", href: "/financas", label: "Mês" },
   { key: "lancamentos", href: "/financas/lancamentos", label: "Lançamentos" },
   { key: "contas", href: "/financas/contas", label: "Contas" },
+  { key: "a-pagar", href: "/financas/contas-a-pagar", label: "A pagar" },
+  { key: "orcamento", href: "/financas/orcamento", label: "Orçamento" },
 ] as const;
 
 export type FinanceTab = (typeof TABS)[number]["key"];
@@ -14,7 +16,7 @@ export function FinanceNav({ active, month }: { active: FinanceTab; month?: stri
     <nav aria-label="Finanças" className="-mx-5 mt-6 overflow-x-auto px-5 md:mx-0 md:px-0">
       <ul className="flex gap-5 border-b border-line text-sm dark:border-line-dark">
         {TABS.map((tab) => {
-          const withMonth = month && (tab.key === "mes" || tab.key === "lancamentos");
+          const withMonth = month && (tab.key === "mes" || tab.key === "lancamentos" || tab.key === "orcamento");
           const selected = tab.key === active;
           return (
             <li key={tab.key}>

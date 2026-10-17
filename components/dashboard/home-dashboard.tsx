@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { attentionPhrase } from "@/lib/domain/attention";
 import { DOMAINS, type Domain } from "@/lib/domain/types";
+import { SuggestedBills } from "@/components/finance/suggested-bills";
 import { monthLabel } from "@/lib/domain/history";
 import type { DashboardData, DashboardFinance } from "@/lib/services/dashboard";
 import { formatMoney } from "@/lib/ui/format";
@@ -124,6 +125,7 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
                   ))}
                 </ul>
               )}
+              {domain === "finance" && ready?.finance ? <SuggestedBills bills={ready.finance.suggested} compact /> : null}
             </section>
           );
         })}

@@ -10,7 +10,9 @@ Não publique este app numa URL aberta. A senha inicial é simples e qualquer co
 
 Só leitura. `/` mostra o que pede atenção. `/caes`, `/carros`, `/familia` e `/casa` listam cada cão, veículo, pessoa e área; a página de cada um (`/caes/:id`, `/carros/:id`, `/familia/:id`, `/casa/:slug`, `/casa/geral`) traz os destaques, os próximos e o histórico por mês, com filtro `?categoria=`.
 
-`/financas?mes=AAAA-MM` mostra o mês: saldo de hoje, resultado, contas a pagar, orçamento e para onde foi o dinheiro. `/financas/lancamentos` lista os lançamentos com filtros (mês, tipo, conta, categoria, `origem=dog:<id>`); `/financas/contas` e `/financas/contas/:slug` mostram saldos e o saldo informado. As páginas de cão, carro e área levam a "Ver em Finanças".
+`/financas?mes=AAAA-MM` mostra o mês: saldo de hoje, resultado, contas a pagar, orçamento e para onde foi o dinheiro. `/financas/lancamentos` lista os lançamentos com filtros (mês, tipo, conta, categoria, `origem=dog:<id>`); `/financas/contas` e `/financas/contas/:slug` mostram saldos e o saldo informado. `/financas/contas-a-pagar` lista as contas que se repetem por vencimento, com os últimos pagamentos; `/financas/orcamento` compara orçado e realizado por categoria e filhas, com os últimos 6 meses. A página do cartão mostra a fatura aberta e as próximas parcelas. As páginas de cão, carro e área levam a "Ver em Finanças".
+
+A única escrita do painel são os botões Confirmar e Dispensar das contas que o James sugeriu (`status: "suggested"`). É um caminho raro: o normal é o dono pedir ao James no chat.
 
 ## Stack
 
