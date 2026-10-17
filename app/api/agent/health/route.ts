@@ -3,6 +3,7 @@ import { jsonOk, toErrorResponse } from "@/lib/agent/http";
 import { tryGetSql } from "@/lib/db/client";
 import { isMissingSchema } from "@/lib/db/errors";
 import { AREA_KINDS, RECOMMENDED_CATEGORIES, DEFAULT_TIMEZONE } from "@/lib/domain/types";
+import { FINANCE_ENUMS } from "@/lib/domain/finance/types";
 import { getSchemaVersion, getSettings } from "@/lib/repositories/settings";
 
 export async function GET(request: Request) {
@@ -18,6 +19,7 @@ export async function GET(request: Request) {
       timezone: DEFAULT_TIMEZONE,
       recommended_categories: RECOMMENDED_CATEGORIES,
       area_kinds: AREA_KINDS,
+      finance: FINANCE_ENUMS,
     });
   }
 
@@ -30,6 +32,7 @@ export async function GET(request: Request) {
       timezone: settings?.timezone ?? DEFAULT_TIMEZONE,
       recommended_categories: RECOMMENDED_CATEGORIES,
       area_kinds: AREA_KINDS,
+      finance: FINANCE_ENUMS,
     });
   } catch (error) {
     if (isMissingSchema(error)) {
@@ -40,6 +43,7 @@ export async function GET(request: Request) {
         timezone: DEFAULT_TIMEZONE,
         recommended_categories: RECOMMENDED_CATEGORIES,
       area_kinds: AREA_KINDS,
+      finance: FINANCE_ENUMS,
       });
     }
     return toErrorResponse(error);

@@ -60,6 +60,7 @@ function itemInput(overrides: Partial<CreateItemInput>): CreateItemInput {
     due_date: null,
     last_done_on: null,
     interval_days: null,
+    interval_months: null,
     notes: null,
     external_key: null,
     ...overrides,

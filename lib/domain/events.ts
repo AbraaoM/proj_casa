@@ -1,4 +1,5 @@
 import { isIsoDate } from "@/lib/domain/dates";
+import { readEventFinance } from "@/lib/domain/finance/validate";
 import { DOMAINS, type Domain } from "@/lib/domain/types";
 import {
   assertArea,
@@ -41,6 +42,10 @@ export type CreateEventInput = {
   odometer_km: number | null;
   amount_cents: number | null;
   external_key: string | null;
+  /** Finance category slug for the cost (default: mapped from domain and category). */
+  finance_category?: string | null;
+  /** Finance account slug the cost was paid from. */
+  account?: string | null;
 };
 
 export type EventPatch = {
@@ -87,6 +92,8 @@ const CREATE_FIELDS = new Set([
   "odometer_km",
   "amount_cents",
   "external_key",
+  "finance_category",
+  "account",
 ]);
 
 const PATCH_FIELDS = new Set([
@@ -136,6 +143,10 @@ export function parseCreateEvent(body: unknown): ParseResult<CreateEventInput> {
   const odometer_km = readInteger(body, "odometer_km", details, 0, 2_000_000);
   const amount_cents = readInteger(body, "amount_cents", details, 0, 100_000_000);
   const external_key = readExternalKey(body, details);
+  const finance = readEventFinance(body, details);
+  if ((finance.finance_category || finance.account) && !amount_cents) {
+    details.push({ field: finance.finance_category ? "finance_category" : "account", message: "needs amount_cents" });
+  }
 
   if (domain && !linked) {
     assertSubject(domain, dog_id, family_member_id, vehicle_id, details);
@@ -163,6 +174,7 @@ export function parseCreateEvent(body: unknown): ParseResult<CreateEventInput> {
       odometer_km,
       amount_cents,
       external_key,
+      ...finance,
     },
   };
 }

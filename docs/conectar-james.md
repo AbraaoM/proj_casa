@@ -14,7 +14,7 @@ O `.env.local` já precisa ter `DATABASE_URL`. O schema entra com:
 npm run db:migrate
 ```
 
-A versão esperada é `004_history_areas`.
+A versão esperada é `005_finance`.
 
 ## 2. Crie a chave
 
@@ -79,7 +79,7 @@ Ligado de verdade, a resposta é `200` e o corpo tem:
 
 - `data.service` = `casa`
 - `data.database` = `ok`
-- `data.schema_version` = `004_history_areas`
+- `data.schema_version` = `005_finance`
 - `data.timezone` = `America/Sao_Paulo`, salvo se a casa tiver outro fuso
 
 `database: "unconfigured"` significa que o processo não viu `DATABASE_URL`. `database: "schema_missing"` significa que a migration não rodou.
@@ -181,6 +181,12 @@ curl -sS "$CASA_URL/api/agent/events/bulk" \
 
 Uma `external_key` estável por evento (por exemplo `domínio:sujeito:categoria:data`) torna a importação segura de repetir.
 
+## 10. Finanças
+
+As categorias padrão já vêm no banco. O James cria as contas que o dono contar (`POST /api/agent/finance/accounts/bulk`, com o saldo de abertura) e passa a mandar `amount_cents` nos eventos que custam dinheiro. O guia completo, com exemplos, está em `docs/financas-james.md`.
+
+O caminho principal é o chat: quando uma tarefa implica custo (uma consulta, um conserto), o James pergunta o valor e grava no evento. Contas que se repetem entram já confirmadas. A sugestão (`status: "suggested"`), com os botões Confirmar e Dispensar no painel, é o caminho raro: use só quando não der para confirmar na conversa, e pouco.
+
 ## Regras para o James
 
 - Datas são `YYYY-MM-DD`, no fuso da casa. "Hoje" é esse fuso, não o relógio do servidor.
@@ -191,4 +197,6 @@ Uma `external_key` estável por evento (por exemplo `domínio:sujeito:categoria:
 - `weight_kg` só vale para cão e `odometer_km` só para carro. Em outro domínio, a API responde `validation_error`.
 - Em cada criação, mande uma `external_key` estável. Repetir a chamada deve ser seguro.
 - Campo desconhecido no JSON responde `400` com `validation_error`. Leia `error.details`.
+- Dinheiro é sempre em centavos inteiros. Custo de um setor vai no evento (`amount_cents`); o lançamento em Finanças nasce dele. Não crie um segundo lançamento para o mesmo gasto.
+- Prefira confirmar contas e gastos no chat. Sugestão no painel é exceção.
 - O painel chama os serviços direto. O James não precisa da chave para a tela existir, e a tela não grava no lugar dele.

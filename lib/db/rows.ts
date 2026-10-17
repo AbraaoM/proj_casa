@@ -30,6 +30,7 @@ export function mapItem(row: Record<string, unknown>): CareItem {
     due_date: dateOnly(row.due_date),
     last_done_on: dateOnly(row.last_done_on),
     interval_days: integerOrNull(row.interval_days),
+    interval_months: integerOrNull(row.interval_months),
     notes: nullableText(row.notes),
     created_by_agent: bool(row.created_by_agent),
     external_key: nullableText(row.external_key),
@@ -174,3 +175,5 @@ function integerOrNull(value: unknown): number | null {
 function bool(value: unknown): boolean {
   return value === true || value === "true" || value === "t";
 }
+
+export { bool, dateOnly, integerOrNull, nullableText, numberOrNull, text, timestamp };

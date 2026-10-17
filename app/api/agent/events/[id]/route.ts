@@ -20,6 +20,6 @@ export async function PATCH(request: Request, context: Context) {
     if (!parsed.ok) throw validationError(parsed.details[0]?.message ?? "Invalid event.", parsed.details);
     const sql = requireSql();
     const result = await updateEvent(sql, id, parsed.value, await householdToday(sql));
-    return jsonOk({ event: result.event }, result.notes.length > 0 ? { notes: result.notes } : {});
+    return jsonOk({ event: result.event, transaction: result.transaction }, result.notes.length > 0 ? { notes: result.notes } : {});
   });
 }

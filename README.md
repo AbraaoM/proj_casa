@@ -95,6 +95,21 @@ Datas são dias de calendário (`YYYY-MM-DD`) no fuso da casa (`America/Sao_Paul
 | POST | `/api/agent/events` | registra algo feito, avulso ou com `care_item_id` |
 | POST | `/api/agent/events/bulk` | até 50 eventos, para importar histórico |
 | GET, PATCH | `/api/agent/events/:id` | lê e corrige. Anular: `{ "voided": true }` |
+| GET, POST | `/api/agent/finance/accounts` | contas com saldo de hoje e patrimônio. O POST é idempotente pelo `slug` |
+| POST | `/api/agent/finance/accounts/bulk` | até 50 contas |
+| GET, PATCH | `/api/agent/finance/accounts/:id_ou_slug` | saldo, último saldo informado, fatura aberta do cartão. Arquivar: `{ "archived": true }` |
+| POST | `/api/agent/finance/accounts/:id_ou_slug/balance-checks` | saldo real numa data |
+| POST | `/api/agent/finance/accounts/:id_ou_slug/reconcile` | `{ through }`: marca `cleared` se o saldo bater |
+| GET, POST | `/api/agent/finance/categories` | categorias (pai e filhas). POST idempotente pelo `slug` |
+| GET, PATCH | `/api/agent/finance/categories/:id_ou_slug` | renomeia, muda a pai, arquiva |
+| GET, POST | `/api/agent/finance/transactions` | lançamentos. `installments: N` parcela uma compra |
+| POST | `/api/agent/finance/transactions/bulk` | até 50 lançamentos |
+| GET, PATCH | `/api/agent/finance/transactions/:id` | corrige ou anula. O que veio de evento se corrige pelo evento |
+| GET, POST | `/api/agent/finance/bills` | contas que se repetem. `?status=active,suggested` |
+| GET, PATCH | `/api/agent/finance/bills/:id_ou_slug` | edita; confirmar `active`, dispensar `ended` |
+| POST | `/api/agent/finance/bills/:id_ou_slug/pay` | paga e avança para o próximo vencimento |
+| GET, PUT | `/api/agent/finance/budgets?month=` | orçado × realizado; PUT faz upsert |
+| GET | `/api/agent/finance/summary?month=` | o mês inteiro numa chamada |
 | GET, PATCH | `/api/agent/settings` | cidade, coordenadas e fuso |
 | GET | `/api/agent/weather` | previsão e `outdoor_delay` |
 
@@ -112,7 +127,7 @@ Categorias recomendadas (outras slugs `a-z0-9_` também passam):
 
 Prioridade: `low`, `normal`, `high`, `urgent`. Status: `active`, `paused`, `completed`, `cancelled`.
 
-Marcar feito com `interval_days` empurra `due_date` e mantém o item ativo. Sem intervalo, o status vira `completed`. Um `done_on` anterior ao `last_done_on` entra no histórico e não anda o prazo para trás. `weight_kg` no evento mais recente atualiza o peso do cão. `odometer_km` maior que o atual atualiza o veículo.
+Marcar feito com `interval_days` (ou `interval_months`, que mantém o dia do mês) empurra `due_date` e mantém o item ativo. Sem intervalo, o status vira `completed`. Um `done_on` anterior ao `last_done_on` entra no histórico e não anda o prazo para trás. `weight_kg` no evento mais recente atualiza o peso do cão. `odometer_km` maior que o atual atualiza o veículo.
 
 ### Histórico
 
@@ -121,7 +136,7 @@ Cada coisa feita é um evento. `POST /api/agent/events` aceita dois formatos:
 - **Avulso**: `domain`, `category`, `title` e o sujeito do domínio (`dog_id`, `vehicle_id`, `family_member_id`, ou `area` em casa). `done_on` padrão é hoje e não pode ser futuro.
 - **Ligado a uma pendência**: `care_item_id`. Domínio, sujeito, categoria e título vêm do item, e o efeito é o mesmo de `POST /items/:id/done` (reagenda). Mandar `category` ou `title` junto responde `validation_error`; domínio ou sujeito diferentes do item também.
 
-Campos opcionais: `notes`, `provider` (clínica, oficina), `amount_cents`, `weight_kg` (só cão), `odometer_km` (só carro), `external_key`.
+Campos opcionais: `notes`, `provider` (clínica, oficina), `amount_cents` (vira um lançamento em Finanças; `finance_category` e `account` ajustam categoria e conta), `weight_kg` (só cão), `odometer_km` (só carro), `external_key`.
 
 O peso do cão passa a ser o do evento com peso mais recente que não foi anulado. Um registro antigo entra no histórico sem mudar o peso atual. O hodômetro só sobe.
 
@@ -129,7 +144,7 @@ Evento errado é anulado com `PATCH /api/agent/events/:id` e `{ "voided": true }
 
 O `history` de cada sujeito devolve `active_items` (todas as pendências ativas, na ordem de atenção), `events` (até 200, mais novos primeiro) e `summary`: `last_by_category`, `weight_series`, `costs` (ano corrente, total e por categoria) e `oil` (última troca, dias e km desde ela).
 
-Sugestão de áreas e exemplo de importação: `docs/conectar-james.md`.
+Sugestão de áreas e exemplo de importação: `docs/conectar-james.md`. Finanças: `docs/financas-james.md`.
 
 A atenção inclui só itens `active`: atrasados, hoje, dentro da janela (14 dias) e sem data. A ordem é atraso, hoje, prazo futuro, sem data. Dentro do grupo, `urgent` vem antes de `high`, `normal` e `low`.
 

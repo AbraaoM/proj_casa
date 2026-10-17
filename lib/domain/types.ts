@@ -56,6 +56,8 @@ export type CareItem = {
   due_date: string | null;
   last_done_on: string | null;
   interval_days: number | null;
+  /** Monthly schedule (keeps the day of month). Exclusive with interval_days. */
+  interval_months: number | null;
   notes: string | null;
   created_by_agent: boolean;
   external_key: string | null;
