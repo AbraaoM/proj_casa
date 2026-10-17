@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { tryGetSql } from "@/lib/db/client";
 import { isMissingSchema } from "@/lib/db/errors";
@@ -5,7 +6,10 @@ import { findSessionUser } from "@/lib/repositories/accounts";
 import type { AccountUser } from "@/lib/auth/types";
 import { hashSessionToken, SESSION_COOKIE, SESSION_DAYS } from "@/lib/auth/token";
 
-export async function currentUser(): Promise<AccountUser | null> {
+/** Once per request: the layout and the page both ask, the database answers once. */
+export const currentUser = cache(readCurrentUser);
+
+async function readCurrentUser(): Promise<AccountUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   const sql = tryGetSql();

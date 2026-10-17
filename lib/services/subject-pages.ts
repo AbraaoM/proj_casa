@@ -10,6 +10,7 @@ import { listItems } from "@/lib/repositories/items";
 import { listDogs, listFamily, listVehicles } from "@/lib/repositories/subjects";
 import { getSubjectHistory, sortActive, type AnySubjectHistory } from "@/lib/services/history";
 import { fetchWeather } from "@/lib/weather/open-meteo";
+import { cache } from "react";
 import { clockFor, readSettings } from "@/lib/services/settings";
 
 export type PageLoad<T> =
@@ -18,6 +19,15 @@ export type PageLoad<T> =
 
 export type HistoryOf<K extends AnySubjectHistory["kind"]> = Extract<AnySubjectHistory, { kind: K }>;
 
+/**
+ * The household settings once per request. The app layout starts this next to the
+ * session lookup, so pages find it ready instead of waiting one more round trip.
+ */
+export const requestSettings = cache(async (): Promise<HouseholdSettings | null> => {
+  const sql = tryGetSql();
+  return sql ? readSettings(sql) : null;
+});
+
 /** Runs a page loader with the same failure states as the dashboard. Never throws. */
 export async function withDatabase<T>(
   load: (sql: Sql, today: string, settings: HouseholdSettings) => Promise<T | null>,
@@ -25,7 +35,7 @@ export async function withDatabase<T>(
   const sql = tryGetSql();
   if (!sql) return { status: "unconfigured" };
   try {
-    const settings = await readSettings(sql);
+    const settings = (await requestSettings()) ?? (await readSettings(sql));
     const today = todayInTimeZone(settings.timezone);
     const data = await load(sql, today, settings);
     if (data === null) return { status: "not_found" };
