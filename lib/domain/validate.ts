@@ -29,6 +29,10 @@ export type CreateItemInput = {
   last_done_on: string | null;
   interval_days: number | null;
   interval_months: number | null;
+  /** Hourly schedule (medication). Exclusive with interval_days and interval_months. */
+  interval_hours?: number | null;
+  /** Last day of treatment (hourly items). */
+  ends_on?: string | null;
   notes: string | null;
   external_key: string | null;
 };
@@ -61,6 +65,8 @@ const CREATE_FIELDS = new Set([
   "last_done_on",
   "interval_days",
   "interval_months",
+  "interval_hours",
+  "ends_on",
   "notes",
   "external_key",
 ]);
@@ -99,8 +105,17 @@ export function parseCreateItem(body: unknown): ParseResult<CreateItemInput> {
   const last_done_on = readDate(body, "last_done_on", details);
   const interval_days = readInterval(body, details);
   const interval_months = readInteger(body, "interval_months", details, 1, 120);
-  if (interval_days !== null && interval_months !== null) {
-    details.push({ field: "interval_months", message: "send interval_days or interval_months, not both" });
+  const interval_hours = readInteger(body, "interval_hours", details, 1, 168);
+  const ends_on = readDate(body, "ends_on", details);
+  const schedules = (
+    [
+      ["interval_days", interval_days],
+      ["interval_months", interval_months],
+      ["interval_hours", interval_hours],
+    ] as const
+  ).filter(([, value]) => value !== null);
+  if (schedules.length > 1) {
+    details.push({ field: schedules[1]?.[0] ?? "interval_hours", message: "send only one of interval_days, interval_months or interval_hours" });
   }
   const notes = readNotes(body, "notes", details);
   const external_key = readExternalKey(body, details);
@@ -131,6 +146,8 @@ export function parseCreateItem(body: unknown): ParseResult<CreateItemInput> {
       last_done_on,
       interval_days,
       interval_months,
+      interval_hours,
+      ends_on,
       notes,
       external_key,
     },
@@ -207,13 +224,16 @@ export function parseItemPatch(body: unknown): ParseResult<Partial<CreateItemInp
   if ("last_done_on" in body) patch.last_done_on = readDate(body, "last_done_on", details);
   if ("interval_days" in body) patch.interval_days = readInterval(body, details);
   if ("interval_months" in body) patch.interval_months = readInteger(body, "interval_months", details, 1, 120);
-  // The two schedules are exclusive: setting one clears the other.
-  if (patch.interval_days != null && patch.interval_months != null) {
-    details.push({ field: "interval_months", message: "send interval_days or interval_months, not both" });
-  } else if (patch.interval_days != null) {
-    patch.interval_months = null;
-  } else if (patch.interval_months != null) {
-    patch.interval_days = null;
+  if ("interval_hours" in body) patch.interval_hours = readInteger(body, "interval_hours", details, 1, 168);
+  if ("ends_on" in body) patch.ends_on = readDate(body, "ends_on", details);
+  // The schedules are exclusive: setting one clears the others.
+  const sent = (["interval_days", "interval_months", "interval_hours"] as const).filter((field) => patch[field] != null);
+  if (sent.length > 1) {
+    details.push({ field: sent[1] ?? "interval_hours", message: "send only one of interval_days, interval_months or interval_hours" });
+  } else if (sent.length === 1) {
+    for (const field of ["interval_days", "interval_months", "interval_hours"] as const) {
+      if (field !== sent[0]) patch[field] = null;
+    }
   }
   if ("notes" in body) patch.notes = readNotes(body, "notes", details);
 

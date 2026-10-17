@@ -6,7 +6,7 @@ import type { CareEvent, Domain } from "@/lib/domain/types";
 export const EVENT_SELECT = `
   SELECT
     e.id, e.care_item_id, e.domain, e.dog_id, e.family_member_id, e.vehicle_id,
-    e.area_id, a.slug AS area_slug, e.category, e.title, e.done_on, e.notes, e.provider,
+    e.area_id, a.slug AS area_slug, e.category, e.title, e.done_on, e.done_at, e.notes, e.provider,
     e.weight_kg, e.odometer_km, e.amount_cents, e.voided_at,
     e.created_by_agent, e.external_key, e.created_at, e.updated_at,
     CASE e.domain
@@ -23,7 +23,7 @@ export const EVENT_SELECT = `
   LEFT JOIN house_areas a ON a.id = e.area_id
 `;
 
-const ORDER = "ORDER BY e.done_on DESC, e.created_at DESC, e.id DESC";
+const ORDER = "ORDER BY e.done_on DESC, e.done_at DESC NULLS LAST, e.created_at DESC, e.id DESC";
 
 export type EventWrite = {
   care_item_id: string | null;

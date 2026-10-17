@@ -3,7 +3,7 @@ import { todayInTimeZone } from "@/lib/domain/dates";
 import { parseAttentionQuery } from "@/lib/domain/validate";
 import { validationError } from "@/lib/errors";
 import { listAttention } from "@/lib/services/attention";
-import { readSettings } from "@/lib/services/settings";
+import { clockFor, readSettings } from "@/lib/services/settings";
 
 export async function GET(request: Request) {
   return run(request, async () => {
@@ -18,6 +18,7 @@ export async function GET(request: Request) {
       today,
       withinDays: parsed.value.within_days,
       domain: parsed.value.domain,
+      clock: clockFor(settings),
     });
     return jsonOk({
       as_of: today,

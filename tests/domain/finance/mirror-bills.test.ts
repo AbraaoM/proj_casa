@@ -6,7 +6,7 @@ import type { CareEvent } from "@/lib/domain/types";
 
 const event = (over: Partial<CareEvent> = {}): CareEvent => ({
   id: "ev1", care_item_id: null, domain: "dog", dog_id: "d1", family_member_id: null, vehicle_id: null,
-  area_id: null, area_slug: null, subject_name: "Thor", category: "vet", title: "Consulta", done_on: "2026-10-10",
+  area_id: null, area_slug: null, subject_name: "Thor", category: "vet", title: "Consulta", done_on: "2026-10-10", done_at: null,
   notes: null, provider: "Clínica", weight_kg: null, odometer_km: null, amount_cents: 18000, voided_at: null,
   created_by_agent: true, external_key: null, created_at: "", updated_at: "", ...over,
 });

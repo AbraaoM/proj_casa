@@ -1,6 +1,6 @@
 import type { Sql } from "@/lib/db/client";
 import type { SettingsPatch } from "@/lib/domain/entities";
-import { DEFAULT_LOCATION, DEFAULT_TIMEZONE, type HouseholdSettings } from "@/lib/domain/types";
+import { DEFAULT_LOCATION, DEFAULT_TIMEZONE, type Clock, type HouseholdSettings } from "@/lib/domain/types";
 import { notFound } from "@/lib/errors";
 import { getSettings, updateSettings } from "@/lib/repositories/settings";
 
@@ -22,4 +22,13 @@ export function fallbackSettings(): HouseholdSettings {
     timezone: DEFAULT_TIMEZONE,
     updated_at: "",
   };
+}
+
+/** Now and the household time zone, for hourly schedules. */
+export function clockFor(settings: Pick<HouseholdSettings, "timezone">, now = new Date()): Clock {
+  return { now: now.toISOString(), timeZone: settings.timezone };
+}
+
+export async function householdClock(sql: Sql): Promise<Clock> {
+  return clockFor(await readSettings(sql));
 }

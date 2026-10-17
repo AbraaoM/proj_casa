@@ -1,15 +1,19 @@
 import { groupByMonth } from "@/lib/domain/history";
-import type { CareEvent } from "@/lib/domain/types";
+import { localTime } from "@/lib/domain/doses";
+import { DEFAULT_TIMEZONE, type CareEvent } from "@/lib/domain/types";
 import { categoryUnlessTitle, dayAndMonth, formatKg, formatKm, formatMoney } from "@/lib/ui/format";
 
 export function Timeline({
   events,
   showSubject = false,
   emptyText = "Nenhum registro ainda. O James preenche isso.",
+  timeZone = DEFAULT_TIMEZONE,
 }: {
   events: CareEvent[];
   showSubject?: boolean;
   emptyText?: string;
+  /** Zone for the time of events that carry done_at (doses). */
+  timeZone?: string;
 }) {
   if (events.length === 0) return <p className="mt-6 text-sm text-ink-muted">{emptyText}</p>;
   const groups = groupByMonth(events);
@@ -42,7 +46,12 @@ export function Timeline({
                       ) : null}
                     </p>
                     {(() => {
-                      const parts = [categoryUnlessTitle(event.category, event.title), event.provider, ...metrics].filter(Boolean);
+                      const parts = [
+                        event.done_at ? localTime(event.done_at, timeZone) : null,
+                        categoryUnlessTitle(event.category, event.title),
+                        event.provider,
+                        ...metrics,
+                      ].filter(Boolean);
                       return parts.length > 0 ? <p className="mt-1 text-sm text-ink-muted">{parts.join(" · ")}</p> : null;
                     })()}
                     {event.notes ? (

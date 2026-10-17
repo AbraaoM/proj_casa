@@ -88,6 +88,6 @@ describe("finance fields on events and items", () => {
   test("interval_months is exclusive with interval_days", () => {
     expect(fields(parseCreateItem({ domain: "finance", title: "x", category: "bill", interval_days: 30, interval_months: 1 }))).toEqual(["interval_months"]);
     const patch = parseItemPatch({ interval_months: 3 });
-    expect(patch.ok && patch.value).toEqual({ interval_months: 3, interval_days: null });
+    expect(patch.ok && patch.value).toEqual({ interval_months: 3, interval_days: null, interval_hours: null });
   });
 });

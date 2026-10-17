@@ -81,7 +81,8 @@ Datas são dias de calendário (`YYYY-MM-DD`) no fuso da casa (`America/Sao_Paul
 | POST | `/api/agent/items/bulk` | até 50 criações, cada uma com o próprio `ok` |
 | GET | `/api/agent/items/:id` | item e os 20 eventos mais recentes |
 | PATCH | `/api/agent/items/:id` | atualiza campos do item |
-| POST | `/api/agent/items/:id/done` | marca feito e reagenda, se houver intervalo |
+| POST | `/api/agent/items/:id/done` | marca feito e reagenda, se houver intervalo. Num remédio por hora, encerra o tratamento |
+| GET, POST | `/api/agent/items/:id/doses` | doses com horário de um remédio (`interval_hours`) e a próxima. O POST registra a dose sem concluir o item. Guia: `docs/doses-james.md` |
 | GET, POST | `/api/agent/dogs` | lista e cria. `?include_archived=1` inclui arquivados |
 | GET, PATCH | `/api/agent/dogs/:id` | lê e atualiza. Arquivar: `{ "archived": true }` |
 | GET, POST | `/api/agent/family` | membros da família |

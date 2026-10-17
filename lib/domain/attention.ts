@@ -1,10 +1,12 @@
 import { daysUntil } from "@/lib/domain/dates";
+import { isDoseLate, localTime } from "@/lib/domain/doses";
 import {
   DEFAULT_WITHIN_DAYS,
   DOMAINS,
   type AttentionItem,
   type AttentionState,
   type AttentionSummary,
+  type Clock,
   type Domain,
   type ItemStatus,
   type Priority,
@@ -13,6 +15,8 @@ import {
 type AttentionSource = {
   status: ItemStatus;
   due_date: string | null;
+  /** Hourly items: late as soon as this time passes. */
+  next_due_at?: string | null;
 };
 
 const PRIORITY_RANK: Record<Priority, number> = {
@@ -33,8 +37,10 @@ export function attentionState(
   item: AttentionSource,
   today: string,
   withinDays = DEFAULT_WITHIN_DAYS,
+  clock: Clock | null = null,
 ): AttentionState | null {
   if (item.status !== "active") return null;
+  if (clock && item.next_due_at && isDoseLate(item.next_due_at, clock.now)) return "overdue";
   if (!item.due_date) return "undated";
   const days = daysUntil(item.due_date, today);
   if (days < 0) return "overdue";
@@ -45,12 +51,17 @@ export function attentionState(
 
 export function sortAttention<
   T extends AttentionSource & { priority: Priority; due_date: string | null },
->(items: T[], today: string, withinDays = DEFAULT_WITHIN_DAYS): Array<T & Pick<AttentionItem, "attention" | "days_until_due">> {
+>(
+  items: T[],
+  today: string,
+  withinDays = DEFAULT_WITHIN_DAYS,
+  clock: Clock | null = null,
+): Array<T & Pick<AttentionItem, "attention" | "days_until_due" | "next_due_time">> {
   const visible = items.flatMap((item) => {
-    const attention = attentionState(item, today, withinDays);
+    const attention = attentionState(item, today, withinDays, clock);
     if (!attention) return [];
     const days_until_due = item.due_date ? daysUntil(item.due_date, today) : null;
-    return [{ ...item, attention, days_until_due }];
+    return [{ ...item, attention, days_until_due, next_due_time: nextDueTime(item, clock) }];
   });
 
   return visible.sort((left, right) => {
@@ -60,6 +71,8 @@ export function sortAttention<
       const days = (left.days_until_due ?? 0) - (right.days_until_due ?? 0);
       if (days !== 0) return days;
     }
+    const time = compareDueTimes(left.next_due_at ?? null, right.next_due_at ?? null);
+    if (time !== 0) return time;
     return PRIORITY_RANK[left.priority] - PRIORITY_RANK[right.priority];
   });
 }
@@ -90,7 +103,27 @@ export function summarizeAttention(
   return summary;
 }
 
-export function attentionPhrase(attention: AttentionState, daysUntilDue: number | null): string {
+/** "HH:mm" of the next dose in the household time zone, or null. */
+export function nextDueTime(item: { next_due_at?: string | null }, clock: Clock | null): string | null {
+  return clock && item.next_due_at ? localTime(item.next_due_at, clock.timeZone) : null;
+}
+
+/** Earlier dose first; items without a time keep their order. */
+export function compareDueTimes(left: string | null, right: string | null): number {
+  if (!left || !right) return 0;
+  return Date.parse(left) - Date.parse(right);
+}
+
+export function attentionPhrase(
+  attention: AttentionState,
+  daysUntilDue: number | null,
+  nextDueTime: string | null = null,
+): string {
+  if (nextDueTime) {
+    if (attention === "overdue") return `dose atrasada · era ${nextDueTime}`;
+    if (attention === "due_today") return `próxima dose ${nextDueTime}`;
+    if (daysUntilDue === 1) return `próxima dose amanhã ${nextDueTime}`;
+  }
   if (attention === "due_today") return "vence hoje";
   if (attention === "undated" || daysUntilDue === null) return "sem data";
   if (attention === "overdue") {

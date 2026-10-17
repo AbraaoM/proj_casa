@@ -118,7 +118,7 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
                         {item.subject_name ? <span className="text-ink-muted"> · {item.subject_name}</span> : null}
                       </p>
                       <p className="mt-1 text-sm text-ink-muted">
-                        {attentionPhrase(item.attention, item.days_until_due)}
+                        {attentionPhrase(item.attention, item.days_until_due, item.next_due_time ?? null)}
                         {priorityWord(item.priority) ? ` · ${priorityWord(item.priority)}` : ""}
                       </p>
                     </li>

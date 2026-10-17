@@ -36,6 +36,7 @@ function eventFrom(write: EventWrite, id = "event-new"): CareEvent {
   return {
     id,
     ...write,
+    done_at: null,
     area_slug: null,
     subject_name: null,
     voided_at: null,
@@ -62,6 +63,10 @@ const item: CareItem = {
   last_done_on: null,
   interval_days: 180,
   interval_months: null,
+  interval_hours: null,
+  last_done_at: null,
+  next_due_at: null,
+  ends_on: null,
   notes: null,
   created_by_agent: true,
   external_key: null,

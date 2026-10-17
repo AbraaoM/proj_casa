@@ -31,6 +31,10 @@ export function mapItem(row: Record<string, unknown>): CareItem {
     last_done_on: dateOnly(row.last_done_on),
     interval_days: integerOrNull(row.interval_days),
     interval_months: integerOrNull(row.interval_months),
+    interval_hours: integerOrNull(row.interval_hours),
+    last_done_at: instant(row.last_done_at),
+    next_due_at: instant(row.next_due_at),
+    ends_on: dateOnly(row.ends_on),
     notes: nullableText(row.notes),
     created_by_agent: bool(row.created_by_agent),
     external_key: nullableText(row.external_key),
@@ -53,6 +57,7 @@ export function mapEvent(row: Record<string, unknown>): CareEvent {
     category: text(row.category),
     title: text(row.title),
     done_on: dateOnly(row.done_on) ?? text(row.done_on),
+    done_at: instant(row.done_at),
     notes: nullableText(row.notes),
     provider: nullableText(row.provider),
     weight_kg: numberOrNull(row.weight_kg),
@@ -161,6 +166,13 @@ function timestamp(value: unknown): string {
   return String(value);
 }
 
+/** A timestamptz as an ISO string in UTC, whatever the driver returns. */
+function instant(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const date = value instanceof Date ? value : new Date(String(value).replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00"));
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString();
+}
+
 function numberOrNull(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   const number = Number(value);
@@ -176,4 +188,4 @@ function bool(value: unknown): boolean {
   return value === true || value === "true" || value === "t";
 }
 
-export { bool, dateOnly, integerOrNull, nullableText, numberOrNull, text, timestamp };
+export { bool, dateOnly, instant, integerOrNull, nullableText, numberOrNull, text, timestamp };

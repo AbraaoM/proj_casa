@@ -13,6 +13,8 @@ import { findEventByExternalKey, getItem, writeDone } from "@/lib/repositories/i
 import { getDog, getFamilyMember, getVehicle } from "@/lib/repositories/subjects";
 import { markItemDone } from "@/lib/services/mark-done";
 import { recordEvent, type RecordEventResult, type RecordEventStore } from "@/lib/services/record-event";
+import { refreshDoseSchedule, sqlDoseStore } from "@/lib/services/doses";
+import { readSettings } from "@/lib/services/settings";
 
 export function sqlEventStore(sql: Sql, today: string): RecordEventStore {
   return {
@@ -135,7 +137,13 @@ export async function updateEvent(
   }
 
   const notes: string[] = [];
-  if (event.care_item_id && (patch.voided !== undefined || patch.done_on !== undefined)) {
+  const touchesSchedule = patch.voided !== undefined || patch.done_on !== undefined;
+  if (event.care_item_id && event.done_at !== null && touchesSchedule) {
+    // A dose: the hourly schedule follows the newest live dose again.
+    const settings = await readSettings(sql);
+    await refreshDoseSchedule(sqlDoseStore(sql), event.care_item_id, settings.timezone);
+    notes.push("The dose schedule was recomputed from the remaining live doses.");
+  } else if (event.care_item_id && touchesSchedule) {
     notes.push("The linked item's schedule was not changed. PATCH /api/agent/items/:id to adjust due_date.");
   }
   const transaction = await mirrorEvent(sql, event);
