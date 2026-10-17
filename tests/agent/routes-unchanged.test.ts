@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-/** The agent API contract: every route file and its HTTP methods. A change here must be on purpose. */
+/** The agent API contract: every route file and its HTTP methods. A change here must be on purpose (bills/bulk added in fluidez). */
 const EXPECTED = [
   "areas GET POST",
   "areas/[id] GET PATCH",
@@ -26,6 +26,7 @@ const EXPECTED = [
   "finance/bills GET POST",
   "finance/bills/[id] GET PATCH",
   "finance/bills/[id]/pay POST",
+  "finance/bills/bulk POST",
   "finance/budgets GET PUT",
   "finance/categories GET POST",
   "finance/categories/[id] GET PATCH",
@@ -68,6 +69,11 @@ describe("/api/agent routes", () => {
       })
       .sort();
     expect(actual).toEqual([...EXPECTED].sort());
+  });
+
+  it("match the proxy's route table, so 404 and 405 never hide a real route", async () => {
+    const { AGENT_ROUTES } = await import("@/lib/agent/route-table");
+    expect(AGENT_ROUTES.map(([route, methods]) => `${route} ${methods.join(" ")}`).sort()).toEqual([...EXPECTED].sort());
   });
 
   it("are not behind the login redirect", async () => {

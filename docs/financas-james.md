@@ -2,7 +2,7 @@
 
 As finanças da Casa são de entrada simples, em reais e em centavos inteiros (`amount_cents`). Cada lançamento é uma saída (`expense`), uma entrada (`income`) ou uma transferência entre contas (`transfer`). Não há partidas dobradas.
 
-Schema: `005_finance`. Rotas em `/api/agent/finance/…`, com o mesmo envelope `{ ok, data, meta }`, `external_key` idempotente, erros por campo e bulk com até 50 entradas. Contas, categorias e contas a pagar aceitam **slug** ou uuid na URL e nos campos.
+Schema: `005_finance`. Rotas em `/api/agent/finance/…`, com o mesmo envelope `{ ok, data, meta }` (também nos erros: caminho inexistente responde 404 `not_found` e método errado 405 `method_not_allowed` com o header `Allow`), `external_key` idempotente, erros por campo e bulk com até 50 entradas. Contas, categorias e contas a pagar aceitam **slug** ou uuid na URL e nos campos.
 
 ## Como o James trabalha
 
@@ -92,6 +92,8 @@ Todo evento com `amount_cents > 0` e não anulado vira **um** lançamento `expen
 - `remaining` (parcelas que faltam) ou `end_date` encerram a bill sozinhos.
 - Cada bill ganha uma pendência `finance` (aparece no painel como qualquer lembrete). `care_item_id` adota uma pendência `finance` que já existe, em vez de criar outra.
 - **Pagar**: `POST /finance/bills/energia/pay` com `{ "paid_on", "amount_cents", "account", "external_key" }`. Registra o evento na pendência, cria o lançamento (`source: "bill"`) e avança bill e pendência para o próximo vencimento. `POST /items/:id/done` na pendência da bill faz o mesmo.
+- **Várias de uma vez**: `POST /finance/bills/bulk` com `{ "items": [ … ] }` (até 50). Cada entrada tem o próprio `ok`; repetir a chamada não duplica (slug e `external_key`).
+- O dono também pode tocar **Paguei** na tela de Finanças. Isso usa a mesma regra do `pay` (hoje, valor previsto ou o digitado, conta da bill) com `external_key` `ui:pay:<bill id>:<vencimento>`. Antes de pagar pela API, consulte a bill: se o vencimento já avançou, ela já foi paga.
 - Confirmar uma sugestão: `PATCH` com `{ "status": "active" }`. Dispensar ou encerrar: `{ "status": "ended" }`. Pausar: `paused`.
 
 ## Orçamento
