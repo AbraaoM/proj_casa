@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { MoreLink } from "@/components/ui/more-link";
 import { PageNotice } from "@/components/history/page-notice";
 import { Stat } from "@/components/history/stat";
 import { SubjectDetail } from "@/components/history/subject-detail";
@@ -44,12 +44,7 @@ export default async function CarPage({ params, searchParams }: Props) {
             value={formatMoney(summary.costs.year_total_cents)}
             hint={topCategory ? `maior: ${categoryLabel(topCategory[0])}, ${formatMoney(topCategory[1])}` : null}
           >
-            <Link
-              href={`/financas/lancamentos?origem=car:${vehicle.id}`}
-              className="mt-2 inline-block text-sm text-accent-dark underline-offset-4 transition-colors duration-300 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:text-accent-light"
-            >
-              Ver em Finanças
-            </Link>
+            <MoreLink href={`/financas/lancamentos?origem=car:${vehicle.id}`}>Ver em Finanças</MoreLink>
           </Stat>
         </>
       }

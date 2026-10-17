@@ -2,8 +2,9 @@ import { addDays, daysUntil } from "@/lib/domain/dates";
 import { netWorth, type NetWorth } from "@/lib/domain/finance/money";
 import type { FinBill, FinCategory, FinTransaction } from "@/lib/domain/finance/types";
 import { parseTransactionListQuery, type TransactionListQuery } from "@/lib/domain/finance/validate";
-import { listCategories } from "@/lib/repositories/finance";
-import { getBillView, listBills, type BillView } from "@/lib/services/finance/bills";
+import { listCategories, listRecentBillPayments } from "@/lib/repositories/finance";
+import type { Sql } from "@/lib/db/client";
+import { listBills, type BillView } from "@/lib/services/finance/bills";
 import { getBudgetView } from "@/lib/services/finance/budgets";
 import { getAccountView, listAccountViews, type AccountView } from "@/lib/services/finance/accounts";
 import { getFinanceSummary, type FinanceSummary } from "@/lib/services/finance/summary";
@@ -121,29 +122,34 @@ export type BillsPage = {
 };
 
 export async function loadBillsPage(): Promise<PageLoad<BillsPage>> {
-  return withDatabase(async (sql, today) => {
-    const bills = await listBills(sql);
-    const active = await Promise.all(
-      bills
-        .filter((bill) => bill.status === "active")
-        .map(async (bill) => ({ ...(await getBillView(sql, bill.id, 3)), days_until_due: daysUntil(bill.next_due_date, today) })),
-    );
-    // A rough monthly cost of what repeats: yearly / 12, weekly × 52 / 12.
-    const perMonth = (bill: (typeof active)[number]) => {
-      if (bill.kind === "income") return 0;
-      if (bill.frequency === "monthly") return bill.amount_cents / bill.interval;
-      if (bill.frequency === "yearly") return bill.amount_cents / (12 * bill.interval);
-      if (bill.frequency === "weekly") return (bill.amount_cents * 52) / (12 * bill.interval);
-      return (bill.amount_cents * 30.44) / bill.interval;
-    };
-    return {
-      today,
-      active,
-      suggested: bills.filter((bill) => bill.status === "suggested"),
-      inactive: bills.filter((bill) => bill.status === "paused" || bill.status === "ended"),
-      monthly_total_cents: Math.round(active.reduce((sum, bill) => sum + perMonth(bill), 0)),
-    };
-  });
+  return withDatabase((sql, today) => billsPageData(sql, today));
+}
+
+/** Two queries whatever the number of bills (it used to be two per bill). */
+export async function billsPageData(sql: Sql, today: string): Promise<BillsPage> {
+  const bills = await listBills(sql);
+  const activeBills = bills.filter((bill) => bill.status === "active");
+  const payments = await listRecentBillPayments(sql, activeBills.map((bill) => bill.id), 3);
+  const active = activeBills.map((bill) => ({
+    ...bill,
+    payments: payments.filter((payment) => payment.bill_id === bill.id),
+    days_until_due: daysUntil(bill.next_due_date, today),
+  }));
+  // A rough monthly cost of what repeats: yearly / 12, weekly × 52 / 12.
+  const perMonth = (bill: (typeof active)[number]) => {
+    if (bill.kind === "income") return 0;
+    if (bill.frequency === "monthly") return bill.amount_cents / bill.interval;
+    if (bill.frequency === "yearly") return bill.amount_cents / (12 * bill.interval);
+    if (bill.frequency === "weekly") return (bill.amount_cents * 52) / (12 * bill.interval);
+    return (bill.amount_cents * 30.44) / bill.interval;
+  };
+  return {
+    today,
+    active,
+    suggested: bills.filter((bill) => bill.status === "suggested"),
+    inactive: bills.filter((bill) => bill.status === "paused" || bill.status === "ended"),
+    monthly_total_cents: Math.round(active.reduce((sum, bill) => sum + perMonth(bill), 0)),
+  };
 }
 
 export async function loadBudgetPage(mes: string | undefined) {

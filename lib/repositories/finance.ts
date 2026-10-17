@@ -278,12 +278,28 @@ export async function listTransactions(
   }
   if (query.q) add("(t.description ILIKE $# OR t.payee ILIKE $# OR t.notes ILIKE $#)", `%${query.q.replace(/[%_\\]/g, "\\$&")}%`);
   const clause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
-  const countRows = await sql.query(`SELECT count(*)::int AS n FROM (${TX_SQL} ${clause}) q`, params);
-  const rows = await sql.query(
-    `${TX_SQL} ${clause} ORDER BY t.date DESC, t.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-    [...params, query.limit, query.offset],
-  );
+  // Count and page are independent: one round trip instead of two.
+  const [countRows, rows] = await Promise.all([
+    sql.query(`SELECT count(*)::int AS n FROM (${TX_SQL} ${clause}) q`, params),
+    sql.query(
+      `${TX_SQL} ${clause} ORDER BY t.date DESC, t.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, query.limit, query.offset],
+    ),
+  ]);
   return { transactions: rows.map(mapTransaction), total: integerOrNull(countRows[0]?.n) ?? 0 };
+}
+
+/** The latest payments of many bills in one query (newest first per bill). */
+export async function listRecentBillPayments(sql: Sql, billIds: string[], perBill: number): Promise<FinTransaction[]> {
+  if (billIds.length === 0) return [];
+  const rows = await sql.query(
+    `SELECT * FROM (
+       SELECT x.*, row_number() OVER (PARTITION BY x.bill_id ORDER BY x.date DESC, x.created_at DESC) AS rn
+       FROM (${TX_SQL} WHERE t.voided_at IS NULL AND t.bill_id = ANY($1::uuid[])) x
+     ) q WHERE q.rn <= $2 ORDER BY q.date DESC, q.created_at DESC`,
+    [billIds, perBill],
+  );
+  return rows.map(mapTransaction);
 }
 
 export async function getTransaction(sql: Sql, id: string): Promise<FinTransaction | null> {

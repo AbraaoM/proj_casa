@@ -27,6 +27,9 @@ describe("/ by session", () => {
     state.user = { id: "u1", username: "pai", role: "admin" } as AccountUser;
     const page = await HomePage();
     expect(page.type).toBe(AppShell);
+    // The dashboard streams behind a Suspense boundary; rendering it loads the data once.
+    const dashboard = page.props.children.props.children;
+    await dashboard.type();
     expect(loadDashboard).toHaveBeenCalledTimes(1);
   });
 });

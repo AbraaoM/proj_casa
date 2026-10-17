@@ -73,7 +73,9 @@ describe.skipIf(!url)("/ with a real session table", () => {
     await session("token-valido", "now() + interval '1 day'");
     jar.token = "token-valido";
     loadDashboard.mockClear();
-    expect((await HomePage()).type).toBe(AppShell);
+    const page = (await HomePage()) as { type: unknown; props: { children: { props: { children: { type: () => Promise<unknown> } } } } };
+    expect(page.type).toBe(AppShell);
+    await page.props.children.props.children.type();
     expect(loadDashboard).toHaveBeenCalledTimes(1);
   });
 });

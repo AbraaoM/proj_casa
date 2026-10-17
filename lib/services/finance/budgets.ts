@@ -19,9 +19,13 @@ export type BudgetView = {
 
 /** Expense minus refunds per category id in a date range. */
 export async function spendingByCategory(sql: Sql, from: string, to: string, categories: FinCategory[]) {
+  return spendFrom(await repo.categoryFlows(sql, from, to), categories);
+}
+
+function spendFrom(flows: Awaited<ReturnType<typeof repo.categoryFlows>>, categories: FinCategory[]) {
   const kinds = new Map(categories.map((category) => [category.id, category.kind]));
   const spent = new Map<string, number>();
-  for (const flow of await repo.categoryFlows(sql, from, to)) {
+  for (const flow of flows) {
     if (kinds.get(flow.category_id) !== "expense") continue;
     const signed = flow.kind === "expense" ? flow.amount_cents : -flow.amount_cents;
     spent.set(flow.category_id, (spent.get(flow.category_id) ?? 0) + signed);
@@ -30,13 +34,15 @@ export async function spendingByCategory(sql: Sql, from: string, to: string, cat
 }
 
 export async function getBudgetView(sql: Sql, month: string): Promise<BudgetView> {
-  const categories = await repo.listCategories(sql, true);
   const { from, to } = monthRange(month);
-  const [budgetRows, spent, history] = await Promise.all([
+  // One round trip: categories are only needed after the flows arrive.
+  const [categories, budgetRows, flows, history] = await Promise.all([
+    repo.listCategories(sql, true),
     repo.listBudgets(sql, from),
-    spendingByCategory(sql, from, to, categories),
+    repo.categoryFlows(sql, from, to),
     repo.monthlyExpense(sql, monthRange(shiftMonth(month, -5)).from, to),
   ]);
+  const spent = spendFrom(flows, categories);
   const lines = budgetLines(categories, effectiveBudgets(budgetRows, from), spent);
   const parents = lines.filter((line) => line.parent_slug === null);
 
