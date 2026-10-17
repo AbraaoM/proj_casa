@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { attentionPhrase } from "@/lib/domain/attention";
-import { DOMAINS, type AttentionState, type Domain, type Priority } from "@/lib/domain/types";
+import { DOMAINS, type Domain } from "@/lib/domain/types";
 import type { DashboardData } from "@/lib/services/dashboard";
+import { markerClass, priorityWord } from "@/lib/ui/attention";
 
 const LABELS: Record<Domain, string> = {
   dog: "Cães",
@@ -8,6 +10,13 @@ const LABELS: Record<Domain, string> = {
   finance: "Finanças",
   car: "Carro",
   family: "Família",
+};
+
+/** Sector pages. Domains without a page stay plain text. */
+const SECTOR_HREF: Partial<Record<Domain, string>> = {
+  dog: "/caes",
+  car: "/carros",
+  family: "/familia",
 };
 
 export function HomeDashboard({ data }: { data: DashboardData }) {
@@ -46,14 +55,44 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
         {DOMAINS.map((domain) => {
           const items = ready?.items.filter((item) => item.domain === domain) ?? [];
           const count = ready?.summary.by_domain[domain].total_active ?? 0;
+          const href = SECTOR_HREF[domain];
+          const shortcuts = ready?.subjects[domain] ?? [];
           return (
             <section key={domain} className="border-t border-line pt-4 dark:border-line-dark">
               <div className="flex items-baseline justify-between gap-4">
-                <h2 className="text-lg">{LABELS[domain]}</h2>
+                <h2 className="text-lg">
+                  {href ? (
+                    <Link
+                      href={href}
+                      className="group inline-flex items-baseline gap-2 transition-colors duration-300 hover:text-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:hover:text-accent-light"
+                    >
+                      {LABELS[domain]}
+                      <span aria-hidden="true" className="text-sm text-ink-faint transition-transform duration-300 group-hover:translate-x-1">
+                        →
+                      </span>
+                    </Link>
+                  ) : (
+                    LABELS[domain]
+                  )}
+                </h2>
                 <p className={count > 0 ? "font-display text-2xl leading-none" : "text-sm text-ink-faint"}>
                   {ready ? count : "—"}
                 </p>
               </div>
+              {shortcuts.length > 0 ? (
+                <ul className="mt-3 flex flex-wrap gap-2" aria-label={`${LABELS[domain]}: atalhos`}>
+                  {shortcuts.map((subject) => (
+                    <li key={subject.id}>
+                      <Link
+                        href={subject.href}
+                        className="inline-block border border-line px-3 py-1 text-sm text-ink-muted transition-colors duration-300 hover:border-black hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:border-line-dark dark:hover:border-white dark:hover:text-white"
+                      >
+                        {subject.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {domain === "house" && data.weather?.outdoor_delay ? (
                 <p className="mt-3 text-sm text-ink-muted">
                   Chuva prevista hoje. Tarefas externas podem esperar.
@@ -101,17 +140,5 @@ function notice(data: DashboardData): string | null {
   if (data.status === "unconfigured") return "Defina DATABASE_URL para ver o que pede atenção.";
   if (data.status === "schema_missing") return "Rode npm run db:migrate.";
   if (data.status === "error") return "O banco respondeu com erro.";
-  return null;
-}
-
-function markerClass(attention: AttentionState): string {
-  if (attention === "due_today") return "border-accent";
-  if (attention === "overdue") return "border-black dark:border-white";
-  return "border-transparent";
-}
-
-function priorityWord(priority: Priority): string | null {
-  if (priority === "urgent") return "urgente";
-  if (priority === "high") return "alta";
   return null;
 }
