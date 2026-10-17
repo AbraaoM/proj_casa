@@ -95,7 +95,14 @@ export function parseAreaPatch(body: unknown): ParseResult<AreaPatch> {
   return { ok: true, value: patch };
 }
 
+/** Slugs taken by fixed pages under /casa. */
+export const RESERVED_AREA_SLUGS = new Set(["geral"]);
+
 function readSlug(value: unknown, details: FieldError[]): string | null {
+  if (typeof value === "string" && RESERVED_AREA_SLUGS.has(value)) {
+    details.push({ field: "slug", message: `"${value}" is reserved` });
+    return null;
+  }
   if (typeof value === "string" && AREA_SLUG_PATTERN.test(value)) return value;
   details.push({ field: "slug", message: "is required: 1 to 40 characters (a-z, 0-9, _)" });
   return null;

@@ -17,6 +17,13 @@ describe("areas", () => {
     }
   });
 
+  test("geral is reserved for the page of items without area", () => {
+    expect(parseAreaCreate({ slug: "geral", name: "Geral" })).toEqual({
+      ok: false,
+      details: [{ field: "slug", message: '"geral" is reserved' }],
+    });
+  });
+
   test("the slug cannot change in a patch", () => {
     const result = parseAreaPatch({ slug: "sala", archived: true });
     expect(result).toEqual({

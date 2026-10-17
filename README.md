@@ -6,6 +6,10 @@ O painel pede usuário e senha. A conta inicial é `admin` / `admin`. Qualquer u
 
 Não publique este app numa URL aberta. A senha inicial é simples e qualquer conta pode trocar a senha das outras.
 
+## Telas
+
+Só leitura. `/` mostra o que pede atenção. `/caes`, `/carros`, `/familia` e `/casa` listam cada cão, veículo, pessoa e área; a página de cada um (`/caes/:id`, `/carros/:id`, `/familia/:id`, `/casa/:slug`, `/casa/geral`) traz os destaques, os próximos e o histórico por mês, com filtro `?categoria=`.
+
 ## Stack
 
 Next.js (App Router), TypeScript, Tailwind, Neon Postgres (`@neondatabase/serverless`). O clima vem da Open-Meteo, sem chave. A cidade padrão é Pindamonhangaba, SP, e pode ser trocada em `/api/agent/settings`.
