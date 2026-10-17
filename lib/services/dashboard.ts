@@ -3,7 +3,10 @@ import { isMissingSchema } from "@/lib/db/errors";
 import { todayInTimeZone } from "@/lib/domain/dates";
 import { DEFAULT_LOCATION, type Domain, type AttentionItem, type AttentionSummary, type HouseholdSettings } from "@/lib/domain/types";
 import { listDogs, listFamily, listVehicles } from "@/lib/repositories/subjects";
+import type { FinBill } from "@/lib/domain/finance/types";
+import { listBills } from "@/lib/repositories/finance";
 import { listAttention } from "@/lib/services/attention";
+import { getBudgetView } from "@/lib/services/finance/budgets";
 import { fallbackSettings, readSettings } from "@/lib/services/settings";
 import { fetchWeather, type WeatherSnapshot } from "@/lib/weather/open-meteo";
 
@@ -32,7 +35,16 @@ export type DashboardData =
       summary: AttentionSummary;
       /** Active subjects per domain, for the shortcuts under each section. */
       subjects: Partial<Record<Domain, SubjectLink[]>>;
+      /** null when finance is not set up yet (or 005 is missing). */
+      finance: DashboardFinance | null;
     };
+
+export type DashboardFinance = {
+  month: string;
+  expense_cents: number;
+  budget_cents: number;
+  suggested: FinBill[];
+};
 
 export type SubjectLink = { id: string; name: string; href: string };
 
@@ -50,12 +62,13 @@ async function loadFromDatabase(sql: Sql): Promise<DashboardData> {
   try {
     const settings = await readSettings(sql);
     const today = todayInTimeZone(settings.timezone);
-    const [attention, weather, subjects] = await Promise.all([
+    const [attention, weather, subjects, finance] = await Promise.all([
       listAttention(sql, { today, withinDays: 14, domain: null }),
       fetchWeather(settings),
       loadSubjects(sql),
+      loadFinance(sql, today),
     ]);
-    return { status: "ready", settings, weather, today, ...attention, subjects };
+    return { status: "ready", settings, weather, today, ...attention, subjects, finance };
   } catch (error) {
     const weather = await fetchWeather(fallback);
     if (isMissingSchema(error)) {
@@ -63,6 +76,18 @@ async function loadFromDatabase(sql: Sql): Promise<DashboardData> {
     }
     console.error(error);
     return { status: "error", settings: { ...fallback, ...DEFAULT_LOCATION }, weather };
+  }
+}
+
+/** The month's spending against the budget, and suggested bills. Never breaks the dashboard. */
+async function loadFinance(sql: Sql, today: string): Promise<DashboardFinance | null> {
+  try {
+    const month = today.slice(0, 7);
+    const [budget, suggested] = await Promise.all([getBudgetView(sql, month), listBills(sql, ["suggested"])]);
+    return { month, expense_cents: budget.total_spent_cents, budget_cents: budget.total_budget_cents, suggested };
+  } catch (error) {
+    if (!isMissingSchema(error)) console.error(error);
+    return null;
   }
 }
 

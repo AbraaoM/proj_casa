@@ -19,7 +19,7 @@ export type PageLoad<T> =
 export type HistoryOf<K extends AnySubjectHistory["kind"]> = Extract<AnySubjectHistory, { kind: K }>;
 
 /** Runs a page loader with the same failure states as the dashboard. Never throws. */
-async function withDatabase<T>(
+export async function withDatabase<T>(
   load: (sql: Sql, today: string, settings: HouseholdSettings) => Promise<T | null>,
 ): Promise<PageLoad<T>> {
   const sql = tryGetSql();

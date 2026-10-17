@@ -10,6 +10,8 @@ Não publique este app numa URL aberta. A senha inicial é simples e qualquer co
 
 Só leitura. `/` mostra o que pede atenção. `/caes`, `/carros`, `/familia` e `/casa` listam cada cão, veículo, pessoa e área; a página de cada um (`/caes/:id`, `/carros/:id`, `/familia/:id`, `/casa/:slug`, `/casa/geral`) traz os destaques, os próximos e o histórico por mês, com filtro `?categoria=`.
 
+`/financas?mes=AAAA-MM` mostra o mês: saldo de hoje, resultado, contas a pagar, orçamento e para onde foi o dinheiro. `/financas/lancamentos` lista os lançamentos com filtros (mês, tipo, conta, categoria, `origem=dog:<id>`); `/financas/contas` e `/financas/contas/:slug` mostram saldos e o saldo informado. As páginas de cão, carro e área levam a "Ver em Finanças".
+
 ## Stack
 
 Next.js (App Router), TypeScript, Tailwind, Neon Postgres (`@neondatabase/serverless`). O clima vem da Open-Meteo, sem chave. A cidade padrão é Pindamonhangaba, SP, e pode ser trocada em `/api/agent/settings`.

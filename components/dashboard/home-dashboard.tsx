@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { attentionPhrase } from "@/lib/domain/attention";
 import { DOMAINS, type Domain } from "@/lib/domain/types";
-import type { DashboardData } from "@/lib/services/dashboard";
+import { monthLabel } from "@/lib/domain/history";
+import type { DashboardData, DashboardFinance } from "@/lib/services/dashboard";
+import { formatMoney } from "@/lib/ui/format";
 import { markerClass, priorityWord } from "@/lib/ui/attention";
 
 const LABELS: Record<Domain, string> = {
@@ -18,6 +20,7 @@ const SECTOR_HREF: Partial<Record<Domain, string>> = {
   house: "/casa",
   car: "/carros",
   family: "/familia",
+  finance: "/financas",
 };
 
 export function HomeDashboard({ data }: { data: DashboardData }) {
@@ -94,6 +97,7 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
                   ))}
                 </ul>
               ) : null}
+              {domain === "finance" && ready?.finance ? <FinanceLine finance={ready.finance} /> : null}
               {domain === "house" && data.weather?.outdoor_delay ? (
                 <p className="mt-3 text-sm text-ink-muted">
                   Chuva prevista hoje. Tarefas externas podem esperar.
@@ -125,6 +129,20 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
         })}
       </div>
     </main>
+  );
+}
+
+function FinanceLine({ finance }: { finance: DashboardFinance }) {
+  const month = monthLabel(finance.month).split(" ")[0]?.toLocaleLowerCase("pt-BR");
+  const over = finance.budget_cents > 0 && finance.expense_cents > finance.budget_cents;
+  return (
+    <p className="mt-3 text-sm text-ink-muted">
+      Saídas de {month}:{" "}
+      <span className={`tabular-nums ${over ? "font-semibold text-black dark:text-white" : "text-black dark:text-white"}`}>
+        {formatMoney(finance.expense_cents)}
+      </span>
+      {finance.budget_cents > 0 ? ` de ${formatMoney(finance.budget_cents)} orçados` : ""}
+    </p>
   );
 }
 
