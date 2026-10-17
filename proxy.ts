@@ -1,12 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth/constants";
+import { proxyDecision } from "@/lib/auth/routes";
 
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  if (pathname.startsWith("/api/agent")) return NextResponse.next();
-
-  const loggedIn = request.cookies.has(SESSION_COOKIE);
-  if (!loggedIn && pathname !== "/login") {
+  const decision = proxyDecision(request.nextUrl.pathname, request.cookies.has(SESSION_COOKIE));
+  if (decision === "login") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
