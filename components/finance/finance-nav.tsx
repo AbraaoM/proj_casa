@@ -23,9 +23,9 @@ export function FinanceNav({ active, month }: { active: FinanceTab; month?: stri
               <Link
                 href={withMonth ? `${tab.href}?mes=${month}` : tab.href}
                 aria-current={selected ? "page" : undefined}
-                className={`-mb-px inline-block whitespace-nowrap border-b-2 pb-2 transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                className={`-mb-px inline-flex min-h-11 items-center whitespace-nowrap border-b-2 transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                   selected
-                    ? "border-black text-black dark:border-white dark:text-white"
+                    ? "border-accent text-black dark:text-white"
                     : "border-transparent text-ink-muted hover:text-black dark:hover:text-white"
                 }`}
               >

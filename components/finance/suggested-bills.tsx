@@ -10,7 +10,7 @@ import { formatDate, formatMoney } from "@/lib/ui/format";
 export function SuggestedBills({ bills, compact = false }: { bills: FinBill[]; compact?: boolean }) {
   if (bills.length === 0) return null;
   const button =
-    "border px-3 py-1.5 text-sm transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+    "inline-flex min-h-11 items-center rounded-md border px-3 text-sm transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
   return (
     <div className={compact ? "mt-6" : "mt-4"}>
       <p className="text-sm text-ink-muted">{bills.length === 1 ? "O James sugeriu uma conta." : `O James sugeriu ${bills.length} contas.`}</p>
