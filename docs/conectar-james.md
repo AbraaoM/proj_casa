@@ -14,19 +14,15 @@ O `.env.local` já precisa ter `DATABASE_URL`. O schema entra com:
 npm run db:migrate
 ```
 
-A versão esperada é `001_init`.
+A versão esperada é `003_agent_keys`.
 
 ## 2. Crie a chave
 
-Gere um segredo longo e cole só no `.env.local`, na linha `AGENT_API_KEY`. Não commite esse arquivo e não grave a chave no repositório.
+Entre no painel (`admin` / `admin` na primeira conta) e abra **Agentes**. Dê um nome, por exemplo James, e use **Gerar chave**. Copie o segredo na hora. Recarregar a página esconde a chave, porque o banco guarda só o hash.
 
-```bash
-openssl rand -base64 32
-```
+Entregue a chave ao James fora do git. Uma chave revogada deixa de funcionar na hora. Gere outra se precisar.
 
-O servidor lê a variável na subida. Se o `npm run dev` já estava aberto, pare e suba de novo depois de salvar o `.env.local`.
-
-Sem `AGENT_API_KEY`, toda rota do agente responde `503` com `agent_not_configured`.
+`AGENT_API_KEY` no `.env.local` continua válida, para quem já usa essa variável. O painel não depende dela. Sem chave ativa e sem essa variável, toda rota do agente responde `503` com `agent_not_configured`.
 
 ## 3. Suba o app e anote a URL
 
@@ -83,15 +79,15 @@ Ligado de verdade, a resposta é `200` e o corpo tem:
 
 - `data.service` = `casa`
 - `data.database` = `ok`
-- `data.schema_version` = `001_init`
+- `data.schema_version` = `003_agent_keys`
 - `data.timezone` = `America/Sao_Paulo`, salvo se a casa tiver outro fuso
 
 `database: "unconfigured"` significa que o processo não viu `DATABASE_URL`. `database: "schema_missing"` significa que a migration não rodou.
 
 | HTTP | `error.code` | O que fazer |
 | --- | --- | --- |
-| 401 | `unauthorized` | A chave do header não é a do `.env.local`, ou o header não é `Bearer`. |
-| 503 | `agent_not_configured` | Falta `AGENT_API_KEY` no processo. Salve o `.env.local` e reinicie o `npm run dev`. |
+| 401 | `unauthorized` | A chave do header não é uma chave ativa, nem `AGENT_API_KEY`, ou o header não é `Bearer`. |
+| 503 | `agent_not_configured` | Não há chave ativa em Agentes e `AGENT_API_KEY` está vazia. |
 | 503 | `database_unavailable` | Nas rotas de dados, falta `DATABASE_URL`. O health, nesse caso, responde `200` com `database: "unconfigured"`. |
 | 500 | `internal_error` | O servidor loga a causa. A resposta não traz stack. |
 

@@ -12,6 +12,12 @@ export function AppHeader({ user }: { user: AccountUser }) {
       <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
         <span className="text-sm text-ink-muted">{user.username}</span>
         <Link
+          href="/agentes"
+          className="text-sm text-ink-muted transition-colors duration-300 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:hover:text-white"
+        >
+          Agentes
+        </Link>
+        <Link
           href="/usuarios"
           className="text-sm text-ink-muted transition-colors duration-300 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:hover:text-white"
         >

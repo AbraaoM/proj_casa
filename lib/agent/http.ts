@@ -76,7 +76,7 @@ export function errorBody(error: unknown): { code: string; message: string; deta
 
 export async function run(request: Request, action: () => Promise<Response>): Promise<Response> {
   const { authorize } = await import("@/lib/agent/auth");
-  const denied = authorize(request);
+  const denied = await authorize(request);
   if (denied) return denied;
   try {
     return await action();

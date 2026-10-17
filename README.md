@@ -2,7 +2,7 @@
 
 Painel da casa. A tela mostra o que pede atenção. Quem grava os dados é o James, pela API em `/api/agent/`.
 
-O painel pede usuário e senha. A conta inicial é `admin` / `admin`. Qualquer usuário logado cria outras contas e define a senha delas. A própria senha pede a senha atual. Não há recuperação de senha. O James continua na chave `AGENT_API_KEY` e não usa esse login.
+O painel pede usuário e senha. A conta inicial é `admin` / `admin`. Qualquer usuário logado cria outras contas e define a senha delas. A própria senha pede a senha atual. Não há recuperação de senha. O James usa uma chave gerada em Agentes, ou a variável `AGENT_API_KEY`. Ele não usa esse login.
 
 Não publique este app numa URL aberta. A senha inicial é simples e qualquer conta pode trocar a senha das outras.
 
@@ -15,7 +15,7 @@ Next.js (App Router), TypeScript, Tailwind, Neon Postgres (`@neondatabase/server
 Copie `.env.example` para `.env.local` e preencha:
 
 - `DATABASE_URL`: connection string pooled do Neon.
-- `AGENT_API_KEY`: segredo longo compartilhado com o James.
+- `AGENT_API_KEY`: segredo opcional. O caminho normal é gerar a chave em Agentes, no painel. A variável continua válida como alternativa.
 
 Nunca commite `.env` nem `.env.local`.
 
@@ -25,7 +25,7 @@ npm run db:migrate
 npm run dev
 ```
 
-Sem `DATABASE_URL` o painel abre e diz que o banco não está ligado. As rotas de dados respondem `503` com `database_unavailable`. Sem `AGENT_API_KEY` as rotas do agente respondem `503` com `agent_not_configured`.
+Sem `DATABASE_URL` o painel abre e diz que o banco não está ligado. As rotas de dados respondem `503` com `database_unavailable`. Sem chave ativa no banco e sem `AGENT_API_KEY`, as rotas do agente respondem `503` com `agent_not_configured`.
 
 ## Agent API
 
@@ -34,7 +34,7 @@ O passo a passo para ligar o James está em `docs/conectar-james.md`.
 Todas as rotas exigem:
 
 ```http
-Authorization: Bearer $AGENT_API_KEY
+Authorization: Bearer <chave>
 ```
 
 Resposta de sucesso:

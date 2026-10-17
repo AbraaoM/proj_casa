@@ -1,23 +1,46 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { jsonError } from "@/lib/agent/http";
+import { decideAgentAccess, hashAgentKey, type AgentKeyStatus } from "@/lib/agent/keys";
+import { tryGetSql } from "@/lib/db/client";
+import { isMissingSchema } from "@/lib/db/errors";
+import { findAgentKeyStatus } from "@/lib/repositories/agent-keys";
 
-export function authorize(request: Request): Response | null {
-  const expected = process.env.AGENT_API_KEY?.trim();
-  if (!expected) {
-    return jsonError("agent_not_configured", "AGENT_API_KEY is not set on the server.", 503);
+export type AgentKeyLookup = (keyHash: string | null) => Promise<AgentKeyStatus>;
+
+export async function authorize(request: Request, lookup: AgentKeyLookup = defaultLookup): Promise<Response | null> {
+  const presented = readBearer(request);
+  const envKey = process.env.AGENT_API_KEY;
+  const closed: AgentKeyStatus = { available: false, hasActiveKey: false, hashMatches: false };
+
+  if (decideAgentAccess({ presented, envKey, database: closed }) === "allow") return null;
+
+  let database: AgentKeyStatus;
+  try {
+    database = await lookup(presented ? hashAgentKey(presented) : null);
+  } catch (error) {
+    if (!isMissingSchema(error)) {
+      console.error("agent key lookup failed");
+      return jsonError("database_unavailable", "Could not verify agent keys.", 503);
+    }
+    database = { available: true, hasActiveKey: false, hashMatches: false };
   }
 
-  const header = request.headers.get("authorization") ?? "";
-  const match = /^Bearer\s+(\S+)\s*$/i.exec(header);
-  const given = match?.[1] ?? "";
-  if (!safeEqual(given, expected)) {
-    return jsonError("unauthorized", "Missing or invalid agent API key.", 401);
+  const decision = decideAgentAccess({ presented, envKey, database });
+  if (decision === "allow") return null;
+  if (decision === "agent_not_configured") {
+    return jsonError("agent_not_configured", "No agent API key is configured.", 503);
   }
-  return null;
+  return jsonError("unauthorized", "Missing or invalid agent API key.", 401);
 }
 
-function safeEqual(left: string, right: string): boolean {
-  const leftHash = createHash("sha256").update(left).digest();
-  const rightHash = createHash("sha256").update(right).digest();
-  return timingSafeEqual(leftHash, rightHash);
+function readBearer(request: Request): string {
+  const header = request.headers.get("authorization") ?? "";
+  const match = /^Bearer\s+(\S+)\s*$/i.exec(header);
+  return match?.[1] ?? "";
+}
+
+async function defaultLookup(keyHash: string | null): Promise<AgentKeyStatus> {
+  const sql = tryGetSql();
+  if (!sql) return { available: false, hasActiveKey: false, hashMatches: false };
+  const status = await findAgentKeyStatus(sql, keyHash);
+  return { available: true, ...status };
 }

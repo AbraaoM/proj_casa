@@ -6,7 +6,7 @@ import { RECOMMENDED_CATEGORIES, DEFAULT_TIMEZONE } from "@/lib/domain/types";
 import { getSchemaVersion, getSettings } from "@/lib/repositories/settings";
 
 export async function GET(request: Request) {
-  const denied = authorize(request);
+  const denied = await authorize(request);
   if (denied) return denied;
 
   const sql = tryGetSql();
