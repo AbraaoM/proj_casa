@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { MoreLink } from "@/components/ui/more-link";
 import { PageNotice } from "@/components/history/page-notice";
 import { Stat } from "@/components/history/stat";
 import { SubjectDetail } from "@/components/history/subject-detail";
@@ -50,12 +50,7 @@ export default async function DogPage({ params, searchParams }: Props) {
             value={formatMoney(summary.costs.year_total_cents)}
             hint={summary.costs.all_time_cents > summary.costs.year_total_cents ? `${formatMoney(summary.costs.all_time_cents)} no total` : null}
           >
-            <Link
-              href={`/financas/lancamentos?origem=dog:${dog.id}`}
-              className="mt-2 inline-block text-sm text-accent-dark underline-offset-4 transition-colors duration-300 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:text-accent-light"
-            >
-              Ver em Finanças
-            </Link>
+            <MoreLink href={`/financas/lancamentos?origem=dog:${dog.id}`}>Ver em Finanças</MoreLink>
           </Stat>
         </>
       }

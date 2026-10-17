@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Car, CloudRain, Dog, House, Users, Wallet, type LucideIcon } from "lucide-react";
+import { Car, ChevronRight, CloudRain, Dog, House, Users, Wallet, type LucideIcon } from "lucide-react";
 import { AttentionMark, EmptyNote } from "@/components/ui/attention-mark";
 import { attentionPhrase } from "@/lib/domain/attention";
 import { DOMAINS, type Domain } from "@/lib/domain/types";
@@ -60,7 +60,7 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
         {place ? <p className="mt-4 text-sm text-ink-muted">{place}</p> : null}
       </section>
 
-      <div className="mt-12 grid gap-10 md:grid-cols-2 md:gap-x-16 md:gap-y-12">
+      <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-6">
         {DOMAINS.map((domain) => {
           const items = ready?.items.filter((item) => item.domain === domain) ?? [];
           const count = ready?.summary.by_domain[domain].total_active ?? 0;
@@ -74,27 +74,24 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
             </>
           );
           return (
-            <section key={domain} className="border-t border-line pt-4 dark:border-line-dark">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-lg">
-                  {href ? (
-                    <Link
-                      href={href}
-                      className="group inline-flex min-h-11 items-center gap-2 rounded-md transition-colors duration-300 hover:text-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:hover:text-accent-light"
-                    >
-                      {label}
-                      <span aria-hidden="true" className="text-sm text-ink-faint transition-transform duration-300 group-hover:translate-x-1">
-                        →
-                      </span>
-                    </Link>
-                  ) : (
-                    <span className="inline-flex min-h-11 items-center gap-2">{label}</span>
-                  )}
-                </h2>
-                <p className={count > 0 ? "font-display text-2xl leading-none" : "text-sm text-ink-faint"}>
-                  {ready ? count : "—"}
-                </p>
-              </div>
+            <section key={domain} className="rounded-xl border border-line p-4 pt-1 dark:border-line-dark">
+              <h2 className="text-lg">
+                {href ? (
+                  <Link
+                    href={href}
+                    className="group -mx-4 flex min-h-14 items-center gap-2 rounded-t-xl px-4 transition-colors duration-300 hover:text-accent-dark focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent active:bg-line/50 dark:hover:text-accent-light dark:active:bg-line-dark"
+                  >
+                    {label}
+                    <SectorCount ready={Boolean(ready)} count={count} />
+                    <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-ink-faint transition-transform duration-300 group-hover:translate-x-0.5" strokeWidth={1.75} />
+                  </Link>
+                ) : (
+                  <span className="flex min-h-14 items-center gap-2">
+                    {label}
+                    <SectorCount ready={Boolean(ready)} count={count} />
+                  </span>
+                )}
+              </h2>
               {shortcuts.length > 0 ? (
                 <ul className="mt-3 flex flex-wrap gap-2" aria-label={`${LABELS[domain]}: atalhos`}>
                   {shortcuts.map((subject) => (
@@ -148,6 +145,14 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
         })}
       </div>
     </main>
+  );
+}
+
+function SectorCount({ ready, count }: { ready: boolean; count: number }) {
+  return (
+    <span className={`ml-auto ${count > 0 ? "font-display text-2xl leading-none" : "text-sm text-ink-faint"}`}>
+      {ready ? count : "—"}
+    </span>
   );
 }
 

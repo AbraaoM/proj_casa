@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { attentionPhrase } from "@/lib/domain/attention";
 import type { AttentionItem } from "@/lib/domain/types";
 import { markerClass } from "@/lib/ui/attention";
@@ -30,9 +31,7 @@ export function SubjectCard({
           <h2 className={`font-display leading-tight tracking-tight ${compact ? "text-2xl" : "text-3xl"} group-hover:text-accent-dark dark:group-hover:text-accent-light`}>
             {title}
           </h2>
-          <span aria-hidden="true" className="text-ink-faint transition-transform duration-300 group-hover:translate-x-1">
-            →
-          </span>
+          <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-ink-faint transition-transform duration-300 group-hover:translate-x-0.5" strokeWidth={1.75} />
         </div>
         {subtitle ? <p className="mt-1 text-sm text-ink-muted">{subtitle}</p> : null}
         {next ? (
