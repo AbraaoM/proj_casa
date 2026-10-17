@@ -2,6 +2,7 @@ import Link from "next/link";
 import { attentionPhrase } from "@/lib/domain/attention";
 import type { AttentionItem } from "@/lib/domain/types";
 import { markerClass } from "@/lib/ui/attention";
+import { EmptyNote } from "@/components/ui/attention-mark";
 
 /** A card in a list page (dogs, cars, family, areas). The whole card is the link. */
 export function SubjectCard({
@@ -40,7 +41,7 @@ export function SubjectCard({
             <span className="block text-sm text-ink-muted">{attentionPhrase(next.attention, next.days_until_due)}</span>
           </p>
         ) : (
-          <p className="mt-4 text-sm text-ink-muted">Nada pendente</p>
+          <EmptyNote>Nada pendente</EmptyNote>
         )}
         {lines.length > 0 ? (
           <ul className="mt-3 space-y-1 text-sm text-ink-muted">

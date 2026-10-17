@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Car, CloudRain, Dog, House, Users, Wallet, type LucideIcon } from "lucide-react";
+import { AttentionMark, EmptyNote } from "@/components/ui/attention-mark";
 import { attentionPhrase } from "@/lib/domain/attention";
 import { DOMAINS, type Domain } from "@/lib/domain/types";
 import { SuggestedBills } from "@/components/finance/suggested-bills";
@@ -14,6 +16,8 @@ const LABELS: Record<Domain, string> = {
   car: "Carro",
   family: "Família",
 };
+
+const ICONS: Record<Domain, LucideIcon> = { dog: Dog, house: House, finance: Wallet, car: Car, family: Users };
 
 /** Sector pages. Domains without a page stay plain text. */
 const SECTOR_HREF: Partial<Record<Domain, string>> = {
@@ -62,22 +66,29 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
           const count = ready?.summary.by_domain[domain].total_active ?? 0;
           const href = SECTOR_HREF[domain];
           const shortcuts = ready?.subjects[domain] ?? [];
+          const Icon = ICONS[domain];
+          const label = (
+            <>
+              <Icon aria-hidden className="h-5 w-5 shrink-0 text-ink-muted" strokeWidth={1.75} />
+              {LABELS[domain]}
+            </>
+          );
           return (
             <section key={domain} className="border-t border-line pt-4 dark:border-line-dark">
-              <div className="flex items-baseline justify-between gap-4">
+              <div className="flex items-center justify-between gap-4">
                 <h2 className="text-lg">
                   {href ? (
                     <Link
                       href={href}
-                      className="group inline-flex items-baseline gap-2 transition-colors duration-300 hover:text-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:hover:text-accent-light"
+                      className="group inline-flex min-h-11 items-center gap-2 rounded-md transition-colors duration-300 hover:text-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:hover:text-accent-light"
                     >
-                      {LABELS[domain]}
+                      {label}
                       <span aria-hidden="true" className="text-sm text-ink-faint transition-transform duration-300 group-hover:translate-x-1">
                         →
                       </span>
                     </Link>
                   ) : (
-                    LABELS[domain]
+                    <span className="inline-flex min-h-11 items-center gap-2">{label}</span>
                   )}
                 </h2>
                 <p className={count > 0 ? "font-display text-2xl leading-none" : "text-sm text-ink-faint"}>
@@ -90,7 +101,7 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
                     <li key={subject.id}>
                       <Link
                         href={subject.href}
-                        className="inline-block border border-line px-3 py-1 text-sm text-ink-muted transition-colors duration-300 hover:border-black hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:border-line-dark dark:hover:border-white dark:hover:text-white"
+                        className="inline-flex min-h-11 items-center rounded-md border border-line px-3 text-sm text-ink-muted transition-colors duration-300 hover:border-black hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:border-line-dark dark:hover:border-white dark:hover:text-white"
                       >
                         {subject.name}
                       </Link>
@@ -100,12 +111,17 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
               ) : null}
               {domain === "finance" && ready?.finance ? <FinanceLine finance={ready.finance} /> : null}
               {domain === "house" && data.weather?.outdoor_delay ? (
-                <p className="mt-3 text-sm text-ink-muted">
+                <p className="mt-3 flex items-center gap-2 text-sm text-ink-muted">
+                  <CloudRain aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                   Chuva prevista hoje. Tarefas externas podem esperar.
                 </p>
               ) : null}
               {items.length === 0 ? (
-                <p className="mt-4 text-sm text-ink-muted">{ready ? "Nada pendente" : "Sem dados"}</p>
+                ready ? (
+                <EmptyNote>Nada pendente</EmptyNote>
+              ) : (
+                <p className="mt-4 text-sm text-ink-muted">Sem dados</p>
+              )
               ) : (
                 <ul className="mt-4 space-y-4">
                   {items.map((item) => (
@@ -114,6 +130,7 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
                       className={`border-l-2 pl-3 ${markerClass(item.attention)}`}
                     >
                       <p className="text-base">
+                        <AttentionMark attention={item.attention} />
                         {item.title}
                         {item.subject_name ? <span className="text-ink-muted"> · {item.subject_name}</span> : null}
                       </p>

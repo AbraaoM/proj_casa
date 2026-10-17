@@ -18,7 +18,7 @@ export function CategoryChips({
         href={href}
         scroll={false}
         aria-current={selected ? "true" : undefined}
-        className={`inline-block whitespace-nowrap border px-3 py-1.5 text-sm transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+        className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-md border px-3 text-sm transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
           selected
             ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
             : "border-line text-ink-muted hover:border-black hover:text-black dark:border-line-dark dark:hover:border-white dark:hover:text-white"

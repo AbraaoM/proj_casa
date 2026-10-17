@@ -7,10 +7,10 @@ import { idleKeyAction, type KeyActionState } from "@/lib/agent/keys";
 type Action = (state: KeyActionState, formData: FormData) => Promise<KeyActionState>;
 
 const fieldClass =
-  "w-full border border-line bg-transparent px-3 py-3 text-base outline-none transition-colors duration-300 placeholder:text-ink-faint focus:border-accent dark:border-line-dark";
+  "w-full rounded-md border border-line bg-transparent px-3 py-3 text-base outline-none transition-colors duration-300 placeholder:text-ink-faint focus:border-accent dark:border-line-dark";
 
 const buttonClass =
-  "bg-accent px-4 py-3 text-sm text-white transition-colors duration-300 hover:bg-accent-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
+  "min-h-11 rounded-md bg-accent px-4 py-3 text-sm font-medium text-soft-black transition-colors duration-300 hover:bg-accent-light focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60";
 
 const textButtonClass =
   "text-sm text-ink-muted transition-colors duration-300 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:hover:text-white";

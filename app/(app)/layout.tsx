@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { AppHeader } from "@/components/app-header";
+import { AppShell } from "@/components/nav/app-shell";
 import { currentUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -7,10 +7,5 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
   if (!user) redirect("/login");
-  return (
-    <>
-      <AppHeader user={user} />
-      {children}
-    </>
-  );
+  return <AppShell user={user}>{children}</AppShell>;
 }
