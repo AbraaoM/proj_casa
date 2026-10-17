@@ -13,6 +13,13 @@ export type AttentionState = (typeof ATTENTION_STATES)[number];
 export const SEXES = ["male", "female", "unknown"] as const;
 export type Sex = (typeof SEXES)[number];
 
+export const AREA_KINDS = ["room", "outdoor", "system"] as const;
+export type AreaKind = (typeof AREA_KINDS)[number];
+
+/** Subjects that own a history page: dog, vehicle, family member, house area. */
+export const SUBJECT_KINDS = ["dog", "vehicle", "family", "area"] as const;
+export type SubjectKind = (typeof SUBJECT_KINDS)[number];
+
 export const DEFAULT_WITHIN_DAYS = 14;
 export const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 
@@ -39,6 +46,8 @@ export type CareItem = {
   dog_id: string | null;
   family_member_id: string | null;
   vehicle_id: string | null;
+  area_id: string | null;
+  area_slug: string | null;
   subject_name: string | null;
   title: string;
   category: string;
@@ -56,15 +65,40 @@ export type CareItem = {
 
 export type CareEvent = {
   id: string;
-  care_item_id: string;
+  care_item_id: string | null;
+  domain: Domain;
+  dog_id: string | null;
+  family_member_id: string | null;
+  vehicle_id: string | null;
+  area_id: string | null;
+  area_slug: string | null;
+  subject_name: string | null;
+  category: string;
+  title: string;
   done_on: string;
   notes: string | null;
+  provider: string | null;
   weight_kg: number | null;
   odometer_km: number | null;
   amount_cents: number | null;
+  voided_at: string | null;
   created_by_agent: boolean;
   external_key: string | null;
   created_at: string;
+  updated_at: string;
+};
+
+export type HouseArea = {
+  id: string;
+  slug: string;
+  name: string;
+  kind: AreaKind;
+  sort_order: number;
+  notes: string | null;
+  archived_at: string | null;
+  created_by_agent: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type DomainCounts = {

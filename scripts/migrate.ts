@@ -1,8 +1,6 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { neon } from "@neondatabase/serverless";
-import { isMissingSchema } from "../lib/db/errors";
-import { pendingVersions } from "../lib/db/migration-plan";
-import { splitSql } from "../lib/db/split-sql";
+import { existsSync, readFileSync } from "node:fs";
+import { createSql } from "../lib/db/client";
+import { applyMigrations } from "../lib/db/migrate";
 
 loadEnvFile(".env.local");
 loadEnvFile(".env");
@@ -14,31 +12,10 @@ async function main() {
     process.exit(1);
   }
 
-  const sql = neon(databaseUrl);
-  const directory = new URL("../db/migrations/", import.meta.url);
-  const files = readdirSync(directory);
-  let applied = new Set<string>();
-  try {
-    const rows = await sql.query("SELECT version FROM schema_migrations");
-    applied = new Set(rows.map((row) => String(row.version)));
-  } catch (error) {
-    if (!isMissingSchema(error)) throw error;
-  }
-
-  const pending = pendingVersions(files, applied);
-  if (pending.length === 0) {
-    console.log("Schema already up to date.");
-    return;
-  }
-
-  for (const version of pending) {
-    const source = readFileSync(new URL(`${version}.sql`, directory), "utf8");
-    for (const statement of splitSql(source)) {
-      await sql.query(statement);
-    }
-    await sql.query("INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT DO NOTHING", [version]);
-    console.log(`Applied ${version}.`);
-  }
+  const sql = createSql(databaseUrl);
+  const applied = await applyMigrations(sql, { log: (line) => console.log(line) });
+  if (applied.length === 0) console.log("Schema already up to date.");
+  if (process.env.DATABASE_DRIVER === "pg") process.exit(0);
 }
 
 main().catch((error: unknown) => {

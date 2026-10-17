@@ -1,5 +1,6 @@
 import type { Sql } from "@/lib/db/client";
 import { mapEvent, mapItem } from "@/lib/db/rows";
+import { EVENT_SELECT, listItemEvents } from "@/lib/repositories/events";
 import type { CreateItemInput, ItemListQuery } from "@/lib/domain/validate";
 import type { CareEvent, CareItem, Domain } from "@/lib/domain/types";
 import type { DoneWrite } from "@/lib/services/mark-done";
@@ -7,6 +8,7 @@ import type { DoneWrite } from "@/lib/services/mark-done";
 const ITEM_SQL = `
   SELECT
     i.id, i.domain, i.dog_id, i.family_member_id, i.vehicle_id,
+    i.area_id, a.slug AS area_slug,
     i.title, i.category, i.status, i.priority,
     i.due_date, i.last_done_on, i.interval_days, i.notes,
     i.created_by_agent, i.external_key, i.created_at, i.updated_at,
@@ -14,12 +16,14 @@ const ITEM_SQL = `
       WHEN 'dog' THEN d.name
       WHEN 'family' THEN f.name
       WHEN 'car' THEN v.name
+      WHEN 'house' THEN a.name
       ELSE NULL
     END AS subject_name
   FROM care_items i
   LEFT JOIN dogs d ON d.id = i.dog_id
   LEFT JOIN family_members f ON f.id = i.family_member_id
   LEFT JOIN vehicles v ON v.id = i.vehicle_id
+  LEFT JOIN house_areas a ON a.id = i.area_id
 `;
 
 export async function listItems(sql: Sql, query: ItemListQuery): Promise<CareItem[]> {
@@ -34,6 +38,10 @@ export async function listItems(sql: Sql, query: ItemListQuery): Promise<CareIte
   if (query.dog_id) add("i.dog_id::text", query.dog_id);
   if (query.family_member_id) add("i.family_member_id::text", query.family_member_id);
   if (query.vehicle_id) add("i.vehicle_id::text", query.vehicle_id);
+  if (query.area) {
+    params.push(query.area);
+    where.push(`(i.area_id::text = $${params.length} OR a.slug = $${params.length})`);
+  }
   params.push(query.limit);
   const clause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
   const rows = await sql.query(
@@ -50,6 +58,7 @@ export async function listActiveItems(sql: Sql, domain: Domain | null): Promise<
     dog_id: null,
     family_member_id: null,
     vehicle_id: null,
+    area: null,
     limit: 1000,
   });
 }
@@ -73,13 +82,13 @@ export async function insertItem(sql: Sql, input: CreateItemInput): Promise<Care
         domain, dog_id, family_member_id, vehicle_id,
         title, category, status, priority,
         due_date, last_done_on, interval_days, notes,
-        created_by_agent, external_key
+        created_by_agent, external_key, area_id
       )
       VALUES (
         $1, $2::uuid, $3::uuid, $4::uuid,
         $5, $6, $7, $8,
         $9::date, $10::date, $11, $12,
-        true, $13
+        true, $13, $14::uuid
       )
       RETURNING id
     `,
@@ -97,6 +106,7 @@ export async function insertItem(sql: Sql, input: CreateItemInput): Promise<Care
       input.interval_days,
       input.notes,
       input.external_key,
+      input.area_id,
     ],
   );
   const id = rows[0]?.id;
@@ -122,6 +132,7 @@ export async function updateItem(
   if (patch.dog_id !== undefined) set("dog_id = $#::uuid", patch.dog_id);
   if (patch.family_member_id !== undefined) set("family_member_id = $#::uuid", patch.family_member_id);
   if (patch.vehicle_id !== undefined) set("vehicle_id = $#::uuid", patch.vehicle_id);
+  if (patch.area_id !== undefined) set("area_id = $#::uuid", patch.area_id);
   if (patch.title !== undefined) set("title = $#", patch.title);
   if (patch.category !== undefined) set("category = $#", patch.category);
   if (patch.status !== undefined) set("status = $#", patch.status);
@@ -142,45 +153,31 @@ export async function updateItem(
 }
 
 export async function listEvents(sql: Sql, itemId: string): Promise<CareEvent[]> {
-  const rows = await sql.query(
-    `
-      SELECT id, care_item_id, done_on, notes, weight_kg, odometer_km, amount_cents,
-             created_by_agent, external_key, created_at
-      FROM care_events
-      WHERE care_item_id::text = $1
-      ORDER BY done_on DESC, created_at DESC
-      LIMIT 20
-    `,
-    [itemId],
-  );
-  return rows.map((row) => mapEvent(row));
+  return listItemEvents(sql, itemId, 20);
 }
 
-export async function findEventByExternalKey(sql: Sql, externalKey: string): Promise<CareEvent | null> {
-  const rows = await sql.query(
-    `
-      SELECT id, care_item_id, done_on, notes, weight_kg, odometer_km, amount_cents,
-             created_by_agent, external_key, created_at
-      FROM care_events
-      WHERE external_key = $1
-    `,
-    [externalKey],
-  );
-  const row = rows[0];
-  return row ? mapEvent(row) : null;
-}
+export { findEventByExternalKey } from "@/lib/repositories/events";
 
+/**
+ * Writes the done event (with the item's subject, category and title) and moves
+ * the schedule in one statement. The dog's weight only changes when this is its
+ * newest live weight. The odometer only goes up.
+ */
 export async function writeDone(sql: Sql, write: DoneWrite): Promise<{ item: CareItem; event: CareEvent }> {
-  const rows = await sql.query(
+  const rows = await sql.query<{ id: string }>(
     `
       WITH inserted AS (
         INSERT INTO care_events (
-          care_item_id, done_on, notes, weight_kg, odometer_km, amount_cents,
-          created_by_agent, external_key
+          care_item_id, domain, dog_id, family_member_id, vehicle_id, area_id,
+          category, title, done_on, notes, provider,
+          weight_kg, odometer_km, amount_cents, created_by_agent, external_key
         )
-        VALUES ($1::uuid, $2::date, $3, $4, $5, $6, true, $7)
-        RETURNING id, care_item_id, done_on, notes, weight_kg, odometer_km,
-                  amount_cents, created_by_agent, external_key, created_at
+        SELECT i.id, i.domain, i.dog_id, i.family_member_id, i.vehicle_id, i.area_id,
+               i.category, i.title, $2::date, $3, $14,
+               $4, $5, $6, true, $7
+        FROM care_items i
+        WHERE i.id = $1::uuid
+        RETURNING id
       ),
       updated AS (
         UPDATE care_items SET
@@ -195,6 +192,13 @@ export async function writeDone(sql: Sql, write: DoneWrite): Promise<{ item: Car
         UPDATE dogs SET weight_kg = $4
         WHERE $12::boolean
           AND id = (SELECT dog_id FROM care_items WHERE id = $1::uuid)
+          AND NOT EXISTS (
+            SELECT 1 FROM care_events ce
+            WHERE ce.dog_id = dogs.id
+              AND ce.weight_kg IS NOT NULL
+              AND ce.voided_at IS NULL
+              AND ce.done_on > $2::date
+          )
         RETURNING id
       ),
       vehicle_upd AS (
@@ -204,9 +208,7 @@ export async function writeDone(sql: Sql, write: DoneWrite): Promise<{ item: Car
           AND (odometer_km IS NULL OR odometer_km < $5)
         RETURNING id
       )
-      SELECT id, care_item_id, done_on, notes, weight_kg, odometer_km,
-             amount_cents, created_by_agent, external_key, created_at
-      FROM inserted
+      SELECT id FROM inserted
     `,
     [
       write.item_id,
@@ -222,11 +224,13 @@ export async function writeDone(sql: Sql, write: DoneWrite): Promise<{ item: Car
       write.status,
       write.update_weight,
       write.update_odometer,
+      write.provider,
     ],
   );
-  const eventRow = rows[0];
-  if (!eventRow) throw new Error("Marking done did not write an event.");
+  const eventId = rows[0]?.id;
+  if (!eventId) throw new Error("Marking done did not write an event.");
+  const eventRows = await sql.query(`${EVENT_SELECT} WHERE e.id = $1::uuid`, [eventId]);
   const item = await getItem(sql, write.item_id);
-  if (!item) throw new Error("Item disappeared after it was marked done.");
-  return { item, event: mapEvent(eventRow) };
+  if (!item || !eventRows[0]) throw new Error("Item disappeared after it was marked done.");
+  return { item, event: mapEvent(eventRows[0]) };
 }

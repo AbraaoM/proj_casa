@@ -17,6 +17,10 @@ export type CreateItemInput = {
   dog_id: string | null;
   family_member_id: string | null;
   vehicle_id: string | null;
+  /** House area by id. Only for domain "house". */
+  area_id: string | null;
+  /** House area by slug, resolved to area_id by the service. Only for domain "house". */
+  area_slug: string | null;
   title: string;
   category: string;
   status: ItemStatus;
@@ -35,6 +39,7 @@ export type DoneInput = {
   weight_kg: number | null;
   odometer_km: number | null;
   amount_cents: number | null;
+  provider: string | null;
 };
 
 const CREATE_FIELDS = new Set([
@@ -42,6 +47,8 @@ const CREATE_FIELDS = new Set([
   "dog_id",
   "family_member_id",
   "vehicle_id",
+  "area_id",
+  "area",
   "title",
   "category",
   "status",
@@ -60,6 +67,7 @@ const DONE_FIELDS = new Set([
   "weight_kg",
   "odometer_km",
   "amount_cents",
+  "provider",
 ]);
 
 const CATEGORY_PATTERN = /^[a-z0-9_]{1,40}$/;
@@ -74,6 +82,8 @@ export function parseCreateItem(body: unknown): ParseResult<CreateItemInput> {
   const dog_id = readUuid(body, "dog_id", details);
   const family_member_id = readUuid(body, "family_member_id", details);
   const vehicle_id = readUuid(body, "vehicle_id", details);
+  const area_id = readUuid(body, "area_id", details);
+  const area_slug = readAreaSlug(body, "area", details);
   const title = readTitle(body, details);
   const category = readCategory(body, details);
   const status = readEnum(body, "status", ITEM_STATUSES, details, false) ?? "active";
@@ -86,6 +96,7 @@ export function parseCreateItem(body: unknown): ParseResult<CreateItemInput> {
 
   if (domain) {
     assertSubject(domain, dog_id, family_member_id, vehicle_id, details);
+    assertArea(domain, area_id, area_slug, details);
   }
 
   if (details.length > 0 || !domain || !title || !category) {
@@ -99,6 +110,8 @@ export function parseCreateItem(body: unknown): ParseResult<CreateItemInput> {
       dog_id,
       family_member_id,
       vehicle_id,
+      area_id,
+      area_slug,
       title,
       category,
       status,
@@ -124,11 +137,12 @@ export function parseDoneBody(body: unknown): ParseResult<DoneInput> {
   const weight_kg = readDecimal(body, "weight_kg", details, 0, 200);
   const odometer_km = readInteger(body, "odometer_km", details, 0, 2_000_000);
   const amount_cents = readInteger(body, "amount_cents", details, 0, 100_000_000);
+  const provider = readShortText(body, "provider", 120, details);
 
   if (details.length > 0) return { ok: false, details };
   return {
     ok: true,
-    value: { done_on, notes, external_key, weight_kg, odometer_km, amount_cents },
+    value: { done_on, notes, external_key, weight_kg, odometer_km, amount_cents, provider },
   };
 }
 
@@ -151,6 +165,11 @@ export function parseItemPatch(body: unknown): ParseResult<Partial<CreateItemInp
   if ("dog_id" in body) patch.dog_id = readUuid(body, "dog_id", details);
   if ("family_member_id" in body) patch.family_member_id = readUuid(body, "family_member_id", details);
   if ("vehicle_id" in body) patch.vehicle_id = readUuid(body, "vehicle_id", details);
+  if ("area_id" in body) patch.area_id = readUuid(body, "area_id", details);
+  if ("area" in body) patch.area_slug = readAreaSlug(body, "area", details);
+  if ("area_id" in body && "area" in body && body.area_id && body.area) {
+    details.push({ field: "area", message: "send area or area_id, not both" });
+  }
   if ("title" in body) {
     const title = readTitle(body, details);
     if (title) patch.title = title;
@@ -196,6 +215,8 @@ export type ItemListQuery = {
   dog_id: string | null;
   family_member_id: string | null;
   vehicle_id: string | null;
+  /** House area id or slug. */
+  area: string | null;
   limit: number;
 };
 
@@ -206,6 +227,7 @@ export function parseItemListQuery(params: URLSearchParams): ParseResult<ItemLis
   const dog_id = readQueryUuid(params, "dog_id", details);
   const family_member_id = readQueryUuid(params, "family_member_id", details);
   const vehicle_id = readQueryUuid(params, "vehicle_id", details);
+  const area = readQueryArea(params, "area", details);
 
   const limitRaw = params.get("limit");
   let limit = 100;
@@ -220,7 +242,7 @@ export function parseItemListQuery(params: URLSearchParams): ParseResult<ItemLis
   if (details.length > 0) return { ok: false, details };
   return {
     ok: true,
-    value: { domain, status, dog_id, family_member_id, vehicle_id, limit },
+    value: { domain, status, dog_id, family_member_id, vehicle_id, area, limit },
   };
 }
 
@@ -258,10 +280,62 @@ export function subjectErrors(input: {
   dog_id: string | null;
   family_member_id: string | null;
   vehicle_id: string | null;
+  area_id?: string | null;
+  area_slug?: string | null;
 }): FieldError[] {
   const details: FieldError[] = [];
   assertSubject(input.domain, input.dog_id, input.family_member_id, input.vehicle_id, details);
+  assertArea(input.domain, input.area_id ?? null, input.area_slug ?? null, details);
   return details;
+}
+
+function assertArea(
+  domain: Domain,
+  areaId: string | null,
+  areaSlug: string | null,
+  details: FieldError[],
+) {
+  if (areaId && areaSlug) {
+    details.push({ field: "area", message: "send area or area_id, not both" });
+    return;
+  }
+  if (domain !== "house") {
+    if (areaId) details.push({ field: "area_id", message: "must be empty for this domain" });
+    if (areaSlug) details.push({ field: "area", message: "must be empty for this domain" });
+  }
+}
+
+export const AREA_SLUG_PATTERN = /^[a-z0-9_]{1,40}$/;
+
+function readAreaSlug(body: Record<string, unknown>, field: string, details: FieldError[]): string | null {
+  const value = body[field];
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "string" && AREA_SLUG_PATTERN.test(value)) return value;
+  details.push({ field, message: "must be an area slug of 1 to 40 characters (a-z, 0-9, _)" });
+  return null;
+}
+
+function readShortText(
+  body: Record<string, unknown>,
+  field: string,
+  max: number,
+  details: FieldError[],
+): string | null {
+  const value = body[field];
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || value.trim().length === 0 || value.length > max) {
+    details.push({ field, message: `must be a string of at most ${max} characters` });
+    return null;
+  }
+  return value.trim();
+}
+
+function readQueryArea(params: URLSearchParams, field: string, details: FieldError[]): string | null {
+  const value = params.get(field);
+  if (!value) return null;
+  if (isUuid(value) || AREA_SLUG_PATTERN.test(value)) return value;
+  details.push({ field, message: "must be an area id or slug" });
+  return null;
 }
 
 function assertSubject(
@@ -444,4 +518,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export { isRecord, readNotes, readTitle };
+export {
+  assertArea,
+  assertSubject,
+  isRecord,
+  readAreaSlug,
+  readCategory,
+  readDate,
+  readDecimal,
+  readEnum,
+  readExternalKey,
+  readInteger,
+  readNotes,
+  readQueryArea,
+  readQueryEnum,
+  readQueryUuid,
+  readShortText,
+  readTitle,
+  readUuid,
+  unknownFields,
+};

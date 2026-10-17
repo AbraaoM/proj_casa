@@ -12,6 +12,8 @@ function careItem(overrides: Partial<CareItem> = {}): CareItem {
     dog_id: "11111111-1111-4111-8111-111111111111",
     family_member_id: null,
     vehicle_id: null,
+    area_id: null,
+    area_slug: null,
     subject_name: "Luna",
     title: "Vacina V10",
     category: "vaccine",
@@ -33,8 +35,20 @@ function careEvent(overrides: Partial<CareEvent> = {}): CareEvent {
   return {
     id: "event-1",
     care_item_id: "item-1",
+    domain: "dog",
+    dog_id: "11111111-1111-4111-8111-111111111111",
+    family_member_id: null,
+    vehicle_id: null,
+    area_id: null,
+    area_slug: null,
+    subject_name: "Luna",
+    category: "vaccine",
+    title: "Vacina V10",
     done_on: "2026-10-16",
     notes: null,
+    provider: null,
+    voided_at: null,
+    updated_at: "2026-10-16T00:00:00.000Z",
     weight_kg: null,
     odometer_km: null,
     amount_cents: null,
@@ -74,7 +88,7 @@ function store(seed: { item?: CareItem | null; event?: CareEvent | null } = {}):
 describe("markItemDone", () => {
   test("rejects an unknown item", async () => {
     await expect(
-      markItemDone(store({ item: null }), "missing", { done_on: TODAY, notes: null, external_key: null, weight_kg: null, odometer_km: null, amount_cents: null }, TODAY),
+      markItemDone(store({ item: null }), "missing", { done_on: TODAY, notes: null, external_key: null, weight_kg: null, odometer_km: null, amount_cents: null, provider: null }, TODAY),
     ).rejects.toMatchObject({ code: "not_found" });
   });
 
@@ -83,7 +97,7 @@ describe("markItemDone", () => {
     const result = await markItemDone(
       memory,
       "item-1",
-      { done_on: TODAY, notes: "de novo", external_key: "luna-v10", weight_kg: 12, odometer_km: null, amount_cents: null },
+      { done_on: TODAY, notes: "de novo", external_key: "luna-v10", weight_kg: 12, odometer_km: null, amount_cents: null, provider: null },
       TODAY,
     );
     expect(result.idempotentReplay).toBe(true);
@@ -97,11 +111,35 @@ describe("markItemDone", () => {
       markItemDone(
         memory,
         "item-1",
-        { done_on: TODAY, notes: null, external_key: "luna-v10", weight_kg: null, odometer_km: null, amount_cents: null },
+        { done_on: TODAY, notes: null, external_key: "luna-v10", weight_kg: null, odometer_km: null, amount_cents: null, provider: null },
         TODAY,
       ),
     ).rejects.toBeInstanceOf(AppError);
     expect(memory.writes).toHaveLength(0);
+  });
+
+  test("rejects a weight on a non-dog item and an odometer on a non-car item", async () => {
+    const memory = store({ item: careItem({ domain: "house", dog_id: null }) });
+    await expect(
+      markItemDone(
+        memory,
+        "item-1",
+        { done_on: TODAY, notes: null, external_key: null, weight_kg: 10, odometer_km: 1000, amount_cents: null, provider: null },
+        TODAY,
+      ),
+    ).rejects.toMatchObject({ code: "validation_error" });
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test("passes the provider through to the write", async () => {
+    const memory = store();
+    await markItemDone(
+      memory,
+      "item-1",
+      { done_on: TODAY, notes: null, external_key: null, weight_kg: null, odometer_km: null, amount_cents: 12000, provider: "Clínica Pet" },
+      TODAY,
+    );
+    expect(memory.writes[0]).toMatchObject({ provider: "Clínica Pet", amount_cents: 12000 });
   });
 
   test("rolls a recurring schedule forward from the done date", async () => {
@@ -109,7 +147,7 @@ describe("markItemDone", () => {
     await markItemDone(
       memory,
       "item-1",
-      { done_on: "2026-10-16", notes: null, external_key: null, weight_kg: 11.2, odometer_km: null, amount_cents: null },
+      { done_on: "2026-10-16", notes: null, external_key: null, weight_kg: 11.2, odometer_km: null, amount_cents: null, provider: null },
       TODAY,
     );
     expect(memory.writes[0]).toMatchObject({
@@ -128,7 +166,7 @@ describe("markItemDone", () => {
     await markItemDone(
       memory,
       "item-1",
-      { done_on: "2026-09-01", notes: "registro antigo", external_key: null, weight_kg: 9, odometer_km: null, amount_cents: null },
+      { done_on: "2026-09-01", notes: "registro antigo", external_key: null, weight_kg: 9, odometer_km: null, amount_cents: null, provider: null },
       TODAY,
     );
     expect(memory.writes[0]).toMatchObject({
@@ -136,7 +174,8 @@ describe("markItemDone", () => {
       done_on: "2026-09-01",
       last_done_on: "2026-10-10",
       due_date: "2027-10-10",
-      update_weight: false,
+      // Still asked for: the repository only applies it if no newer weight exists.
+      update_weight: true,
     });
   });
 });

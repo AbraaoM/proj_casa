@@ -1,8 +1,10 @@
 import type {
   CareEvent,
   CareItem,
+  AreaKind,
   Dog,
   Domain,
+  HouseArea,
   FamilyMember,
   HouseholdSettings,
   ItemStatus,
@@ -18,6 +20,8 @@ export function mapItem(row: Record<string, unknown>): CareItem {
     dog_id: nullableText(row.dog_id),
     family_member_id: nullableText(row.family_member_id),
     vehicle_id: nullableText(row.vehicle_id),
+    area_id: nullableText(row.area_id),
+    area_slug: nullableText(row.area_slug),
     subject_name: nullableText(row.subject_name),
     title: text(row.title),
     category: text(row.category),
@@ -37,15 +41,42 @@ export function mapItem(row: Record<string, unknown>): CareItem {
 export function mapEvent(row: Record<string, unknown>): CareEvent {
   return {
     id: text(row.id),
-    care_item_id: text(row.care_item_id),
+    care_item_id: nullableText(row.care_item_id),
+    domain: text(row.domain) as Domain,
+    dog_id: nullableText(row.dog_id),
+    family_member_id: nullableText(row.family_member_id),
+    vehicle_id: nullableText(row.vehicle_id),
+    area_id: nullableText(row.area_id),
+    area_slug: nullableText(row.area_slug),
+    subject_name: nullableText(row.subject_name),
+    category: text(row.category),
+    title: text(row.title),
     done_on: dateOnly(row.done_on) ?? text(row.done_on),
     notes: nullableText(row.notes),
+    provider: nullableText(row.provider),
     weight_kg: numberOrNull(row.weight_kg),
     odometer_km: integerOrNull(row.odometer_km),
     amount_cents: integerOrNull(row.amount_cents),
+    voided_at: row.voided_at == null ? null : timestamp(row.voided_at),
     created_by_agent: bool(row.created_by_agent),
     external_key: nullableText(row.external_key),
     created_at: timestamp(row.created_at),
+    updated_at: row.updated_at == null ? timestamp(row.created_at) : timestamp(row.updated_at),
+  };
+}
+
+export function mapArea(row: Record<string, unknown>): HouseArea {
+  return {
+    id: text(row.id),
+    slug: text(row.slug),
+    name: text(row.name),
+    kind: text(row.kind) as AreaKind,
+    sort_order: integerOrNull(row.sort_order) ?? 0,
+    notes: nullableText(row.notes),
+    archived_at: row.archived_at == null ? null : timestamp(row.archived_at),
+    created_by_agent: bool(row.created_by_agent),
+    created_at: timestamp(row.created_at),
+    updated_at: timestamp(row.updated_at),
   };
 }
 

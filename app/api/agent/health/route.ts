@@ -2,7 +2,7 @@ import { authorize } from "@/lib/agent/auth";
 import { jsonOk, toErrorResponse } from "@/lib/agent/http";
 import { tryGetSql } from "@/lib/db/client";
 import { isMissingSchema } from "@/lib/db/errors";
-import { RECOMMENDED_CATEGORIES, DEFAULT_TIMEZONE } from "@/lib/domain/types";
+import { AREA_KINDS, RECOMMENDED_CATEGORIES, DEFAULT_TIMEZONE } from "@/lib/domain/types";
 import { getSchemaVersion, getSettings } from "@/lib/repositories/settings";
 
 export async function GET(request: Request) {
@@ -17,6 +17,7 @@ export async function GET(request: Request) {
       schema_version: null,
       timezone: DEFAULT_TIMEZONE,
       recommended_categories: RECOMMENDED_CATEGORIES,
+      area_kinds: AREA_KINDS,
     });
   }
 
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
       schema_version: version,
       timezone: settings?.timezone ?? DEFAULT_TIMEZONE,
       recommended_categories: RECOMMENDED_CATEGORIES,
+      area_kinds: AREA_KINDS,
     });
   } catch (error) {
     if (isMissingSchema(error)) {
@@ -37,6 +39,7 @@ export async function GET(request: Request) {
         schema_version: null,
         timezone: DEFAULT_TIMEZONE,
         recommended_categories: RECOMMENDED_CATEGORIES,
+      area_kinds: AREA_KINDS,
       });
     }
     return toErrorResponse(error);
