@@ -7,7 +7,7 @@ import type { FinBill } from "@/lib/domain/finance/types";
 import { listBills } from "@/lib/repositories/finance";
 import { listAttention } from "@/lib/services/attention";
 import { getBudgetView } from "@/lib/services/finance/budgets";
-import { fallbackSettings, readSettings } from "@/lib/services/settings";
+import { clockFor, fallbackSettings, readSettings } from "@/lib/services/settings";
 import { fetchWeather, type WeatherSnapshot } from "@/lib/weather/open-meteo";
 
 export type DashboardData =
@@ -63,7 +63,7 @@ async function loadFromDatabase(sql: Sql): Promise<DashboardData> {
     const settings = await readSettings(sql);
     const today = todayInTimeZone(settings.timezone);
     const [attention, weather, subjects, finance] = await Promise.all([
-      listAttention(sql, { today, withinDays: 14, domain: null }),
+      listAttention(sql, { today, withinDays: 14, domain: null, clock: clockFor(settings) }),
       fetchWeather(settings),
       loadSubjects(sql),
       loadFinance(sql, today),

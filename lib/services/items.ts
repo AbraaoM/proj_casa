@@ -7,6 +7,8 @@ import { notFound, validationError } from "@/lib/errors";
 import * as itemsRepo from "@/lib/repositories/items";
 import { getAreaByRef } from "@/lib/repositories/areas";
 import { getDog, getFamilyMember, getVehicle } from "@/lib/repositories/subjects";
+import { refreshDoseSchedule, sqlDoseStore } from "@/lib/services/doses";
+import { readSettings } from "@/lib/services/settings";
 
 export async function listItems(sql: Sql, query: ItemListQuery): Promise<CareItem[]> {
   return itemsRepo.listItems(sql, query);
@@ -86,6 +88,11 @@ export async function updateItem(
 
   const item = await itemsRepo.updateItem(sql, id, next);
   if (!item) throw notFound();
+  const touchesDoses = patch.interval_hours !== undefined || patch.ends_on !== undefined;
+  if (touchesDoses && (item.interval_hours !== null || current.interval_hours !== null)) {
+    const settings = await readSettings(sql);
+    return (await refreshDoseSchedule(sqlDoseStore(sql), id, settings.timezone)) ?? item;
+  }
   return item;
 }
 

@@ -10,7 +10,7 @@ import { listItems } from "@/lib/repositories/items";
 import { listDogs, listFamily, listVehicles } from "@/lib/repositories/subjects";
 import { getSubjectHistory, sortActive, type AnySubjectHistory } from "@/lib/services/history";
 import { fetchWeather } from "@/lib/weather/open-meteo";
-import { readSettings } from "@/lib/services/settings";
+import { clockFor, readSettings } from "@/lib/services/settings";
 
 export type PageLoad<T> =
   | { status: "unconfigured" | "schema_missing" | "error" | "not_found" }
@@ -40,9 +40,10 @@ export async function withDatabase<T>(
 
 /** Every active subject of a kind with its history, for the list pages. */
 export async function loadSubjectList<K extends SubjectKind>(kind: K): Promise<PageLoad<Array<HistoryOf<K>>>> {
-  return withDatabase(async (sql, today) => {
+  return withDatabase(async (sql, today, settings) => {
     const ids = await listIds(sql, kind);
-    const histories = await Promise.all(ids.map((id) => getSubjectHistory(sql, kind, id, today)));
+    const clock = clockFor(settings);
+    const histories = await Promise.all(ids.map((id) => getSubjectHistory(sql, kind, id, today, clock)));
     return histories as Array<HistoryOf<K>>;
   });
 }
@@ -50,7 +51,9 @@ export async function loadSubjectList<K extends SubjectKind>(kind: K): Promise<P
 export async function loadSubjectDetail<K extends SubjectKind>(kind: K, ref: string): Promise<PageLoad<HistoryOf<K>>> {
   const validRef = isUuid(ref) || (kind === "area" && /^[a-z0-9_]{1,40}$/.test(ref));
   if (!validRef) return { status: "not_found" };
-  return withDatabase(async (sql, today) => (await getSubjectHistory(sql, kind, ref, today)) as HistoryOf<K>);
+  return withDatabase(
+    async (sql, today, settings) => (await getSubjectHistory(sql, kind, ref, today, clockFor(settings))) as HistoryOf<K>,
+  );
 }
 
 async function listIds(sql: Sql, kind: SubjectKind): Promise<string[]> {

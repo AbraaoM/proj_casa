@@ -11,6 +11,7 @@ const ITEM_SQL = `
     i.area_id, a.slug AS area_slug,
     i.title, i.category, i.status, i.priority,
     i.due_date, i.last_done_on, i.interval_days, i.interval_months, i.notes,
+    i.interval_hours, i.last_done_at, i.next_due_at, i.ends_on,
     i.created_by_agent, i.external_key, i.created_at, i.updated_at,
     CASE i.domain
       WHEN 'dog' THEN d.name
@@ -82,13 +83,15 @@ export async function insertItem(sql: Sql, input: CreateItemInput): Promise<Care
         domain, dog_id, family_member_id, vehicle_id,
         title, category, status, priority,
         due_date, last_done_on, interval_days, notes,
-        created_by_agent, external_key, area_id, interval_months
+        created_by_agent, external_key, area_id, interval_months,
+        interval_hours, ends_on
       )
       VALUES (
         $1, $2::uuid, $3::uuid, $4::uuid,
         $5, $6, $7, $8,
         $9::date, $10::date, $11, $12,
-        true, $13, $14::uuid, $15
+        true, $13, $14::uuid, $15,
+        $16, $17::date
       )
       RETURNING id
     `,
@@ -108,6 +111,8 @@ export async function insertItem(sql: Sql, input: CreateItemInput): Promise<Care
       input.external_key,
       input.area_id,
       input.interval_months,
+      input.interval_hours ?? null,
+      input.ends_on ?? null,
     ],
   );
   const id = rows[0]?.id;
@@ -142,6 +147,8 @@ export async function updateItem(
   if (patch.last_done_on !== undefined) set("last_done_on = $#::date", patch.last_done_on);
   if (patch.interval_days !== undefined) set("interval_days = $#", patch.interval_days);
   if (patch.interval_months !== undefined) set("interval_months = $#", patch.interval_months);
+  if (patch.interval_hours !== undefined) set("interval_hours = $#", patch.interval_hours);
+  if (patch.ends_on !== undefined) set("ends_on = $#::date", patch.ends_on);
   if (patch.notes !== undefined) set("notes = $#", patch.notes);
 
   if (assignments.length === 0) return getItem(sql, id);

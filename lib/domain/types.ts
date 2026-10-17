@@ -58,6 +58,14 @@ export type CareItem = {
   interval_days: number | null;
   /** Monthly schedule (keeps the day of month). Exclusive with interval_days. */
   interval_months: number | null;
+  /** Hourly schedule, for medication. Exclusive with interval_days and interval_months. */
+  interval_hours: number | null;
+  /** Time of the newest live dose (hourly items). */
+  last_done_at: string | null;
+  /** When the next dose is due (hourly items). due_date is its day in the household time zone. */
+  next_due_at: string | null;
+  /** Last day of treatment. The item completes itself when the next dose would fall after it. */
+  ends_on: string | null;
   notes: string | null;
   created_by_agent: boolean;
   external_key: string | null;
@@ -78,6 +86,8 @@ export type CareEvent = {
   category: string;
   title: string;
   done_on: string;
+  /** Exact time, when known (medication doses). done_on is its day in the household time zone. */
+  done_at: string | null;
   notes: string | null;
   provider: string | null;
   weight_kg: number | null;
@@ -120,7 +130,12 @@ export type AttentionSummary = {
 export type AttentionItem = CareItem & {
   attention: AttentionState;
   days_until_due: number | null;
+  /** "HH:mm" of next_due_at in the household time zone, for hourly items. */
+  next_due_time?: string | null;
 };
+
+/** The current time and the household time zone, for hourly schedules. */
+export type Clock = { now: string; timeZone: string };
 
 export type HouseholdSettings = {
   city: string;
