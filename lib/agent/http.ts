@@ -99,3 +99,44 @@ export async function run(request: Request, action: () => Promise<Response>): Pr
     return toErrorResponse(error);
   }
 }
+
+/** A finance account, category or bill is addressed by uuid or by slug. */
+export async function requireRef(params: Promise<{ id: string }>, label = "Record"): Promise<string> {
+  const { id } = await params;
+  if (!isUuid(id) && !/^[a-z0-9_]{1,40}$/.test(id)) throw notFound(`${label} was not found.`);
+  return id;
+}
+
+/** Runs a bulk request: each entry parsed and handled on its own, with its own ok. */
+export async function bulkResults<T>(
+  items: unknown[],
+  parse: (raw: unknown) => { ok: true; value: T } | { ok: false; details: FieldError[] },
+  handle: (value: T) => Promise<{ data: unknown; idempotentReplay: boolean }>,
+): Promise<Response> {
+  const results = [];
+  for (let index = 0; index < items.length; index += 1) {
+    const parsed = parse(items[index]);
+    if (!parsed.ok) {
+      results.push({
+        index,
+        ok: false,
+        error: { code: "validation_error", message: parsed.details[0]?.message ?? "Invalid entry.", details: parsed.details },
+      });
+      continue;
+    }
+    try {
+      const done = await handle(parsed.value);
+      results.push({ index, ok: true, data: done.data, meta: { idempotent_replay: done.idempotentReplay } });
+    } catch (error) {
+      const body = errorBody(error);
+      if (body.code === "internal_error") console.error(error);
+      results.push({ index, ok: false, error: body });
+    }
+  }
+  const succeeded = results.filter((result) => result.ok).length;
+  return jsonOk({ results }, { succeeded, failed: results.length - succeeded });
+}
+
+export function invalid(details: FieldError[], fallback = "Invalid request."): AppError {
+  return new AppError("validation_error", details[0]?.message ?? fallback, 400, details);
+}

@@ -22,6 +22,7 @@ function careItem(overrides: Partial<CareItem> = {}): CareItem {
     due_date: "2026-10-16",
     last_done_on: null,
     interval_days: 365,
+    interval_months: null,
     notes: null,
     created_by_agent: true,
     external_key: null,

@@ -28,6 +28,7 @@ export type CreateItemInput = {
   due_date: string | null;
   last_done_on: string | null;
   interval_days: number | null;
+  interval_months: number | null;
   notes: string | null;
   external_key: string | null;
 };
@@ -40,6 +41,9 @@ export type DoneInput = {
   odometer_km: number | null;
   amount_cents: number | null;
   provider: string | null;
+  /** Finance category and account slugs for the cost. */
+  finance_category?: string | null;
+  account?: string | null;
 };
 
 const CREATE_FIELDS = new Set([
@@ -56,6 +60,7 @@ const CREATE_FIELDS = new Set([
   "due_date",
   "last_done_on",
   "interval_days",
+  "interval_months",
   "notes",
   "external_key",
 ]);
@@ -68,6 +73,8 @@ const DONE_FIELDS = new Set([
   "odometer_km",
   "amount_cents",
   "provider",
+  "finance_category",
+  "account",
 ]);
 
 const CATEGORY_PATTERN = /^[a-z0-9_]{1,40}$/;
@@ -91,6 +98,10 @@ export function parseCreateItem(body: unknown): ParseResult<CreateItemInput> {
   const due_date = readDate(body, "due_date", details);
   const last_done_on = readDate(body, "last_done_on", details);
   const interval_days = readInterval(body, details);
+  const interval_months = readInteger(body, "interval_months", details, 1, 120);
+  if (interval_days !== null && interval_months !== null) {
+    details.push({ field: "interval_months", message: "send interval_days or interval_months, not both" });
+  }
   const notes = readNotes(body, "notes", details);
   const external_key = readExternalKey(body, details);
 
@@ -119,6 +130,7 @@ export function parseCreateItem(body: unknown): ParseResult<CreateItemInput> {
       due_date,
       last_done_on,
       interval_days,
+      interval_months,
       notes,
       external_key,
     },
@@ -138,11 +150,16 @@ export function parseDoneBody(body: unknown): ParseResult<DoneInput> {
   const odometer_km = readInteger(body, "odometer_km", details, 0, 2_000_000);
   const amount_cents = readInteger(body, "amount_cents", details, 0, 100_000_000);
   const provider = readShortText(body, "provider", 120, details);
+  const finance_category = readFinanceRef(body, "finance_category", details);
+  const account = readFinanceRef(body, "account", details);
+  if ((finance_category || account) && !amount_cents) {
+    details.push({ field: finance_category ? "finance_category" : "account", message: "needs amount_cents" });
+  }
 
   if (details.length > 0) return { ok: false, details };
   return {
     ok: true,
-    value: { done_on, notes, external_key, weight_kg, odometer_km, amount_cents, provider },
+    value: { done_on, notes, external_key, weight_kg, odometer_km, amount_cents, provider, finance_category, account },
   };
 }
 
@@ -189,6 +206,15 @@ export function parseItemPatch(body: unknown): ParseResult<Partial<CreateItemInp
   if ("due_date" in body) patch.due_date = readDate(body, "due_date", details);
   if ("last_done_on" in body) patch.last_done_on = readDate(body, "last_done_on", details);
   if ("interval_days" in body) patch.interval_days = readInterval(body, details);
+  if ("interval_months" in body) patch.interval_months = readInteger(body, "interval_months", details, 1, 120);
+  // The two schedules are exclusive: setting one clears the other.
+  if (patch.interval_days != null && patch.interval_months != null) {
+    details.push({ field: "interval_months", message: "send interval_days or interval_months, not both" });
+  } else if (patch.interval_days != null) {
+    patch.interval_months = null;
+  } else if (patch.interval_months != null) {
+    patch.interval_days = null;
+  }
   if ("notes" in body) patch.notes = readNotes(body, "notes", details);
 
   if (details.length > 0) return { ok: false, details };
@@ -511,6 +537,14 @@ function readQueryUuid(params: URLSearchParams, field: string, details: FieldErr
   if (!value) return null;
   if (isUuid(value)) return value;
   details.push({ field, message: "must be a uuid" });
+  return null;
+}
+
+function readFinanceRef(body: Record<string, unknown>, field: string, details: FieldError[]): string | null {
+  const value = body[field];
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "string" && (CATEGORY_PATTERN.test(value) || isUuid(value))) return value;
+  details.push({ field, message: "must be a slug or a uuid" });
   return null;
 }
 

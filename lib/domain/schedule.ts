@@ -1,10 +1,12 @@
 import { addDays } from "@/lib/domain/dates";
+import { addMonths } from "@/lib/domain/finance/dates";
 import type { ItemStatus } from "@/lib/domain/types";
 
 export type ScheduleSnapshot = {
   last_done_on: string | null;
   due_date: string | null;
   interval_days: number | null;
+  interval_months?: number | null;
   status: ItemStatus;
 };
 
@@ -31,6 +33,15 @@ export function applyDone(item: ScheduleSnapshot, doneOn: string): ScheduleUpdat
       advance: true,
       last_done_on: doneOn,
       due_date: addDays(doneOn, item.interval_days),
+      status: "active",
+    };
+  }
+
+  if (item.interval_months && item.interval_months > 0) {
+    return {
+      advance: true,
+      last_done_on: doneOn,
+      due_date: addMonths(doneOn, item.interval_months),
       status: "active",
     };
   }

@@ -1,7 +1,12 @@
 import type { Sql } from "@/lib/db/client";
 import { measurementErrors, type CreateEventInput, type EventListQuery, type EventPatch } from "@/lib/domain/events";
 import type { CareEvent } from "@/lib/domain/types";
-import { notFound, validationError } from "@/lib/errors";
+import type { FinTransaction } from "@/lib/domain/finance/types";
+import type { DoneInput } from "@/lib/domain/validate";
+import { AppError, notFound, validationError } from "@/lib/errors";
+import { findBillByItem } from "@/lib/repositories/finance";
+import { payBill } from "@/lib/services/finance/bills";
+import { mirrorEvent, resolveEventFinance } from "@/lib/services/finance/mirror";
 import { getAreaByRef } from "@/lib/repositories/areas";
 import * as eventsRepo from "@/lib/repositories/events";
 import { findEventByExternalKey, getItem, writeDone } from "@/lib/repositories/items";
@@ -37,8 +42,56 @@ export function sqlEventStore(sql: Sql, today: string): RecordEventStore {
   };
 }
 
-export async function createEvent(sql: Sql, input: CreateEventInput, today: string): Promise<RecordEventResult> {
-  return recordEvent(sqlEventStore(sql, today), input, today);
+export type EventWithFinance = RecordEventResult & { transaction: FinTransaction | null };
+
+/**
+ * Records an event and mirrors its cost into finance. An event on a bill's item
+ * is a bill payment (POST /finance/bills/:id/pay), so the bill moves too.
+ */
+export async function createEvent(sql: Sql, input: CreateEventInput, today: string): Promise<EventWithFinance> {
+  const finance = await resolveEventFinance(sql, input);
+  if (input.care_item_id) {
+    const bill = await findBillByItem(sql, input.care_item_id);
+    if (bill) {
+      if (input.finance_category) {
+        throw validationError("A bill payment uses the bill's category.", [
+          { field: "finance_category", message: "omit it for a bill's item" },
+        ]);
+      }
+      const paid = await payBill(
+        sql,
+        bill.id,
+        { paid_on: input.done_on, amount_cents: input.amount_cents || null, account: input.account ?? null, notes: input.notes, external_key: input.external_key },
+        today,
+      );
+      return { event: paid.event, item: paid.item, idempotentReplay: paid.idempotentReplay, transaction: paid.transaction };
+    }
+  }
+  const result = await recordEvent(sqlEventStore(sql, today), input, today);
+  const transaction = await mirrorEvent(sql, result.event, finance);
+  return { ...result, transaction };
+}
+
+/** POST /items/:id/done, with the cost mirrored into finance. */
+export async function completeItem(sql: Sql, itemId: string, input: DoneInput, today: string): Promise<EventWithFinance> {
+  return createEvent(
+    sql,
+    {
+      care_item_id: itemId,
+      domain: null, dog_id: null, family_member_id: null, vehicle_id: null, area_id: null, area_slug: null,
+      category: null, title: null,
+      done_on: input.done_on, notes: input.notes, provider: input.provider,
+      weight_kg: input.weight_kg, odometer_km: input.odometer_km, amount_cents: input.amount_cents,
+      external_key: input.external_key, finance_category: input.finance_category, account: input.account,
+    },
+    today,
+  ).catch(async (error) => {
+    // Keep the done route's 404 for an unknown item.
+    if (error instanceof AppError && error.details?.[0]?.field === "care_item_id" && !(await getItem(sql, itemId))) {
+      throw notFound();
+    }
+    throw error;
+  });
 }
 
 export async function listEvents(sql: Sql, query: EventListQuery): Promise<CareEvent[]> {
@@ -61,7 +114,7 @@ export async function updateEvent(
   id: string,
   patch: EventPatch,
   today: string,
-): Promise<{ event: CareEvent; notes: string[] }> {
+): Promise<{ event: CareEvent; notes: string[]; transaction: FinTransaction | null }> {
   const current = await getEvent(sql, id);
   const details = measurementErrors(current.domain, patch.weight_kg ?? null, patch.odometer_km ?? null);
   if (patch.done_on && patch.done_on > today) {
@@ -85,5 +138,6 @@ export async function updateEvent(
   if (event.care_item_id && (patch.voided !== undefined || patch.done_on !== undefined)) {
     notes.push("The linked item's schedule was not changed. PATCH /api/agent/items/:id to adjust due_date.");
   }
-  return { event, notes };
+  const transaction = await mirrorEvent(sql, event);
+  return { event, notes, transaction };
 }

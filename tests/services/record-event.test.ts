@@ -61,6 +61,7 @@ const item: CareItem = {
   due_date: "2026-10-20",
   last_done_on: null,
   interval_days: 180,
+  interval_months: null,
   notes: null,
   created_by_agent: true,
   external_key: null,

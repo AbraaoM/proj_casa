@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const sql = requireSql();
     const result = await createEvent(sql, parsed.value, await householdToday(sql));
     return jsonOk(
-      { event: result.event, item: result.item },
+      { event: result.event, item: result.item, transaction: result.transaction },
       { idempotent_replay: result.idempotentReplay },
       result.idempotentReplay ? 200 : 201,
     );

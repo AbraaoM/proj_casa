@@ -27,7 +27,7 @@ export async function POST(request: Request) {
         results.push({
           index,
           ok: true,
-          data: { event: created.event, item: created.item },
+          data: { event: created.event, item: created.item, transaction: created.transaction },
           meta: { idempotent_replay: created.idempotentReplay },
         });
       } catch (error) {
