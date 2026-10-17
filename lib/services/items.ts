@@ -5,6 +5,7 @@ import { subjectErrors } from "@/lib/domain/validate";
 import type { CareEvent, CareItem } from "@/lib/domain/types";
 import { notFound, validationError } from "@/lib/errors";
 import * as itemsRepo from "@/lib/repositories/items";
+import { getAreaByRef } from "@/lib/repositories/areas";
 import { getDog, getFamilyMember, getVehicle } from "@/lib/repositories/subjects";
 
 export async function listItems(sql: Sql, query: ItemListQuery): Promise<CareItem[]> {
@@ -31,9 +32,10 @@ export async function createItem(
   }
 
   await ensureSubject(sql, input);
+  const area_id = await resolveArea(sql, input.area_id, input.area_slug);
 
   try {
-    const item = await itemsRepo.insertItem(sql, input);
+    const item = await itemsRepo.insertItem(sql, { ...input, area_id, area_slug: null });
     return { item, idempotentReplay: false };
   } catch (error) {
     if (input.external_key && isUniqueViolation(error)) {
@@ -58,6 +60,11 @@ export async function updateItem(
     family_member_id:
       patch.family_member_id === undefined ? current.family_member_id : patch.family_member_id,
     vehicle_id: patch.vehicle_id === undefined ? current.vehicle_id : patch.vehicle_id,
+    area_id:
+      patch.area_id !== undefined || patch.area_slug !== undefined
+        ? (patch.area_id ?? null)
+        : current.area_id,
+    area_slug: patch.area_slug ?? null,
   };
   const details = subjectErrors(merged);
   if (details.length > 0) {
@@ -71,7 +78,13 @@ export async function updateItem(
     merged.vehicle_id !== current.vehicle_id;
   if (subjectChanged) await ensureSubject(sql, merged);
 
-  const item = await itemsRepo.updateItem(sql, id, patch);
+  const { area_slug, ...rest } = patch;
+  const next: Partial<CreateItemInput> = { ...rest };
+  if (area_slug !== undefined || patch.area_id !== undefined) {
+    next.area_id = await resolveArea(sql, patch.area_id ?? null, area_slug ?? null);
+  }
+
+  const item = await itemsRepo.updateItem(sql, id, next);
   if (!item) throw notFound();
   return item;
 }
@@ -116,4 +129,15 @@ async function ensureSubject(
       throw validationError("vehicle is archived.", [{ field: "vehicle_id", message: "is archived" }]);
     }
   }
+}
+
+/** Resolves an area id or slug to an id. Archived areas do not take new items. */
+async function resolveArea(sql: Sql, areaId: string | null, areaSlug: string | null): Promise<string | null> {
+  const ref = areaId ?? areaSlug;
+  if (!ref) return null;
+  const field = areaId ? "area_id" : "area";
+  const area = await getAreaByRef(sql, ref);
+  if (!area) throw validationError("area was not found.", [{ field, message: "was not found" }]);
+  if (area.archived_at) throw validationError("area is archived.", [{ field, message: "is archived" }]);
+  return area.id;
 }

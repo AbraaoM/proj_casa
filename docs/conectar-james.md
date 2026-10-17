@@ -14,7 +14,7 @@ O `.env.local` já precisa ter `DATABASE_URL`. O schema entra com:
 npm run db:migrate
 ```
 
-A versão esperada é `003_agent_keys`.
+A versão esperada é `004_history_areas`.
 
 ## 2. Crie a chave
 
@@ -79,7 +79,7 @@ Ligado de verdade, a resposta é `200` e o corpo tem:
 
 - `data.service` = `casa`
 - `data.database` = `ok`
-- `data.schema_version` = `003_agent_keys`
+- `data.schema_version` = `004_history_areas`
 - `data.timezone` = `America/Sao_Paulo`, salvo se a casa tiver outro fuso
 
 `database: "unconfigured"` significa que o processo não viu `DATABASE_URL`. `database: "schema_missing"` significa que a migration não rodou.
@@ -118,12 +118,77 @@ curl -sS "$CASA_URL/api/agent/items" \
 
 `201` cria. A mesma `external_key` de novo devolve o primeiro registro, `200`, e `meta.idempotent_replay: true`. A chave identifica a operação. Ela não atualiza o título nem a data.
 
+## 8. Configure as áreas da casa
+
+A migration não cria áreas. O James cria as áreas reais depois de confirmar com o dono quais cômodos existem. Lista sugerida, para ajustar à casa:
+
+| slug | nome | kind |
+| --- | --- | --- |
+| `cozinha` | Cozinha | `room` |
+| `sala` | Sala | `room` |
+| `quarto_casal` | Quarto do casal | `room` |
+| `quarto_2` | Quarto 2 | `room` |
+| `banheiro_social` | Banheiro social | `room` |
+| `banheiro_suite` | Banheiro da suíte | `room` |
+| `lavanderia` | Lavanderia | `room` |
+| `escritorio` | Escritório | `room` |
+| `quintal` | Quintal | `outdoor` |
+| `garagem` | Garagem | `outdoor` |
+| `jardim` | Jardim | `outdoor` |
+| `fachada` | Fachada | `outdoor` |
+| `telhado_calhas` | Telhado e calhas | `outdoor` |
+| `caixa_dagua` | Caixa d'água | `system` |
+| `eletrica` | Elétrica | `system` |
+| `hidraulica` | Hidráulica | `system` |
+| `ar_condicionado` | Ar-condicionado | `system` |
+| `gas` | Gás | `system` |
+| `portao_seguranca` | Portão e segurança | `system` |
+
+`kind` separa cômodos (`room`), área externa (`outdoor`) e sistemas da casa (`system`). Um único pedido cria todas:
+
+```bash
+curl -sS "$CASA_URL/api/agent/areas/bulk" \
+  -H "Authorization: Bearer $AGENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "items": [
+    { "slug": "cozinha", "name": "Cozinha", "kind": "room", "sort_order": 1 },
+    { "slug": "quintal", "name": "Quintal", "kind": "outdoor" },
+    { "slug": "caixa_dagua", "name": "Caixa d'"'"'água", "kind": "system" }
+  ] }'
+```
+
+O `slug` é a identidade: repetir o mesmo slug devolve a área existente sem mudar nada. Para renomear, use `PATCH /api/agent/areas/cozinha` com `{ "name": "..." }`. O slug não muda; para trocar, crie outra área e arquive a antiga.
+
+## 9. Importe o histórico
+
+O histórico é feito de eventos (`care_events`). Um evento pode estar ligado a uma pendência (`care_item_id`) ou ser avulso: uma consulta, uma pesagem, um conserto que não estava agendado.
+
+```bash
+curl -sS "$CASA_URL/api/agent/events/bulk" \
+  -H "Authorization: Bearer $AGENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "items": [
+    { "domain": "dog", "dog_id": "<uuid>", "category": "vaccine", "title": "V10",
+      "done_on": "2025-10-10", "provider": "Clínica Pet", "amount_cents": 12000,
+      "external_key": "dog:thor:vaccine:2025-10-10" },
+    { "domain": "car", "vehicle_id": "<uuid>", "category": "oil", "title": "Troca de óleo",
+      "done_on": "2026-04-16", "odometer_km": 40000, "amount_cents": 32000,
+      "external_key": "car:onix:oil:2026-04-16" },
+    { "domain": "house", "area": "caixa_dagua", "category": "cleaning", "title": "Limpeza da caixa d'"'"'água",
+      "done_on": "2026-03-01", "external_key": "house:caixa_dagua:cleaning:2026-03-01" }
+  ] }'
+```
+
+Uma `external_key` estável por evento (por exemplo `domínio:sujeito:categoria:data`) torna a importação segura de repetir.
+
 ## Regras para o James
 
 - Datas são `YYYY-MM-DD`, no fuso da casa. "Hoje" é esse fuso, não o relógio do servidor.
 - Cão exige só `dog_id`. Família exige só `family_member_id`. Carro exige só `vehicle_id`. Casa e finanças recusam os três.
 - Categoria é um slug `^[a-z0-9_]{1,40}$`. A lista recomendada vem em `data.recommended_categories` no health.
-- Não há delete. Arquivar cão, pessoa ou veículo é `PATCH` com `{ "archived": true }`. Item encerrado vai para `cancelled` ou `completed`.
+- Não há delete. Arquivar cão, pessoa, veículo ou área é `PATCH` com `{ "archived": true }`. Item encerrado vai para `cancelled` ou `completed`.
+- Evento lançado errado é anulado com `PATCH /api/agent/events/:id` e `{ "voided": true }`. Ele sai do histórico e dos resumos, mas continua no banco. `{ "voided": false }` desfaz.
+- `weight_kg` só vale para cão e `odometer_km` só para carro. Em outro domínio, a API responde `validation_error`.
 - Em cada criação, mande uma `external_key` estável. Repetir a chamada deve ser seguro.
 - Campo desconhecido no JSON responde `400` com `validation_error`. Leia `error.details`.
 - O painel chama os serviços direto. O James não precisa da chave para a tela existir, e a tela não grava no lugar dele.

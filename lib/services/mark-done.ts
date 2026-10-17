@@ -1,3 +1,4 @@
+import { measurementErrors } from "@/lib/domain/events";
 import { applyDone } from "@/lib/domain/schedule";
 import type { DoneInput } from "@/lib/domain/validate";
 import type { CareEvent, CareItem, ItemStatus } from "@/lib/domain/types";
@@ -11,6 +12,7 @@ export type DoneWrite = {
   weight_kg: number | null;
   odometer_km: number | null;
   amount_cents: number | null;
+  provider: string | null;
   external_key: string | null;
   advance: boolean;
   last_done_on: string;
@@ -50,6 +52,10 @@ export async function markItemDone(
   if (!current) throw notFound();
 
   const doneOn = input.done_on ?? today;
+  const measurement = measurementErrors(current.domain, input.weight_kg, input.odometer_km);
+  if (measurement.length > 0) {
+    throw validationError(measurement[0]?.message ?? "Invalid measurement.", measurement);
+  }
   const schedule = applyDone(current, doneOn);
   const write: DoneWrite = {
     item_id: id,
@@ -58,12 +64,14 @@ export async function markItemDone(
     weight_kg: input.weight_kg,
     odometer_km: input.odometer_km,
     amount_cents: input.amount_cents,
+    provider: input.provider,
     external_key: input.external_key,
     advance: schedule.advance,
     last_done_on: schedule.last_done_on,
     due_date: schedule.due_date,
     status: schedule.status,
-    update_weight: schedule.advance && input.weight_kg !== null && current.domain === "dog",
+    // The repository only applies it when this is the dog's newest live weight.
+    update_weight: input.weight_kg !== null && current.domain === "dog",
     update_odometer: input.odometer_km !== null && current.domain === "car",
   };
 

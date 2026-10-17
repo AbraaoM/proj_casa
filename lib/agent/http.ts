@@ -46,6 +46,21 @@ export async function requireId(params: Promise<{ id: string }>): Promise<string
   return id;
 }
 
+/** A house area is addressed by uuid or by slug. */
+export async function requireAreaRef(params: Promise<{ id: string }>): Promise<string> {
+  const { id } = await params;
+  if (!isUuid(id) && !/^[a-z0-9_]{1,40}$/.test(id)) throw notFound("Area was not found.");
+  return id;
+}
+
+/** Today in the household's time zone. */
+export async function householdToday(sql: Sql): Promise<string> {
+  const { readSettings } = await import("@/lib/services/settings");
+  const { todayInTimeZone } = await import("@/lib/domain/dates");
+  const settings = await readSettings(sql);
+  return todayInTimeZone(settings.timezone);
+}
+
 export function toErrorResponse(error: unknown): Response {
   const body = errorBody(error);
   const status =
