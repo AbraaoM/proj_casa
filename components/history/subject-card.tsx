@@ -10,12 +10,14 @@ export function SubjectCard({
   subtitle,
   next,
   lines,
+  compact = false,
 }: {
   href: string;
   title: string;
   subtitle: string | null;
   next: AttentionItem | null;
   lines: string[];
+  compact?: boolean;
 }) {
   return (
     <li>
@@ -24,7 +26,7 @@ export function SubjectCard({
         className="group block h-full border-t border-line pt-4 transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent dark:border-line-dark"
       >
         <div className="flex items-baseline justify-between gap-4">
-          <h2 className="font-display text-3xl leading-tight tracking-tight group-hover:text-accent-dark dark:group-hover:text-accent-light">
+          <h2 className={`font-display leading-tight tracking-tight ${compact ? "text-2xl" : "text-3xl"} group-hover:text-accent-dark dark:group-hover:text-accent-light`}>
             {title}
           </h2>
           <span aria-hidden="true" className="text-ink-faint transition-transform duration-300 group-hover:translate-x-1">

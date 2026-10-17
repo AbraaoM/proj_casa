@@ -157,7 +157,7 @@ curl -sS "$CASA_URL/api/agent/areas/bulk" \
   ] }'
 ```
 
-O `slug` é a identidade: repetir o mesmo slug devolve a área existente sem mudar nada. Para renomear, use `PATCH /api/agent/areas/cozinha` com `{ "name": "..." }`. O slug não muda; para trocar, crie outra área e arquive a antiga.
+O slug `geral` é reservado (é a página dos itens sem área). O `slug` é a identidade: repetir o mesmo slug devolve a área existente sem mudar nada. Para renomear, use `PATCH /api/agent/areas/cozinha` com `{ "name": "..." }`. O slug não muda; para trocar, crie outra área e arquive a antiga.
 
 ## 9. Importe o histórico
 

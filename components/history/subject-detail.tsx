@@ -19,6 +19,7 @@ export function SubjectDetail({
   events,
   basePath,
   category,
+  notice,
 }: {
   back: { href: string; label: string };
   eyebrow: string;
@@ -29,6 +30,8 @@ export function SubjectDetail({
   events: CareEvent[];
   basePath: string;
   category: string | null;
+  /** A short line under the header, e.g. the rain warning on outdoor areas. */
+  notice?: string | null;
 }) {
   const counts = new Map<string, number>();
   for (const event of events) counts.set(event.category, (counts.get(event.category) ?? 0) + 1);
@@ -54,6 +57,9 @@ export function SubjectDetail({
               </div>
             ))}
           </dl>
+        ) : null}
+        {notice ? (
+          <p className="mt-5 border-l-2 border-accent pl-3 text-sm text-ink-muted">{notice}</p>
         ) : null}
       </header>
 
