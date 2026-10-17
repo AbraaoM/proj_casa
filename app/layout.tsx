@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Anton, Inter } from "next/font/google";
 import "./globals.css";
 
@@ -25,6 +25,16 @@ export const metadata: Metadata = {
   title: "Casa",
   description: "O que pede atenção em casa.",
   robots: { index: false, follow: false },
+  applicationName: "Casa",
+  appleWebApp: { capable: true, title: "Casa", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
