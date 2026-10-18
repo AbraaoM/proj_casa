@@ -26,7 +26,7 @@ const ENTER = `inline-flex min-h-11 items-center justify-center rounded-md bg-ac
 
 const STEPS: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: MessageCircle, title: "Você conta no chat", text: "“Dei a vitamina agora.” “Paguei o condomínio.” Do jeito que sai." },
-  { icon: NotebookPen, title: "O James registra", text: "O agente anota no lugar certo, com data e hora, sem duplicar." },
+  { icon: NotebookPen, title: "O seu agente registra", text: "O agente anota no lugar certo, com data e hora, sem duplicar." },
   { icon: LayoutGrid, title: "O painel mostra o que pede atenção", text: "Atrasado primeiro, depois o que vence hoje e na semana." },
 ];
 
@@ -62,7 +62,7 @@ export function Landing() {
         <section className="py-16 md:py-24">
           <h1 className="max-w-3xl font-display text-5xl leading-[0.95] tracking-tight md:text-7xl">A casa em dia, sem planilha.</h1>
           <p className="mt-6 max-w-xl text-lg text-ink-muted">
-            Cães, casa, carro, família, contas e remédios num painel só. Quem anota é o James; você olha e confirma.
+            Cães, casa, carro, família, contas e remédios num painel só. Quem anota é o seu agente; você olha e confirma.
           </p>
           <Link href="/login" className={`${ENTER} mt-8`}>
             Entrar

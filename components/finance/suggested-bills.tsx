@@ -4,8 +4,8 @@ import { frequencyPhrase } from "@/lib/ui/finance";
 import { formatDate, formatMoney } from "@/lib/ui/format";
 
 /**
- * Bills James noticed but could not confirm in chat. Rare by design: the usual
- * path is the owner telling James. Plain forms, so they work without client JS.
+ * Bills the agent noticed but could not confirm in chat. Rare by design: the usual
+ * path is the owner telling the agent. Plain forms, so they work without client JS.
  */
 export function SuggestedBills({ bills, compact = false }: { bills: FinBill[]; compact?: boolean }) {
   if (bills.length === 0) return null;
@@ -13,7 +13,7 @@ export function SuggestedBills({ bills, compact = false }: { bills: FinBill[]; c
     "inline-flex min-h-11 items-center rounded-md border px-3 text-sm transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
   return (
     <div className={compact ? "mt-6" : "mt-4"}>
-      <p className="text-sm text-ink-muted">{bills.length === 1 ? "O James sugeriu uma conta." : `O James sugeriu ${bills.length} contas.`}</p>
+      <p className="text-sm text-ink-muted">{bills.length === 1 ? "O seu agente sugeriu uma conta." : `O seu agente sugeriu ${bills.length} contas.`}</p>
       <ul className="mt-3 space-y-3">
         {bills.map((bill) => (
           <li key={bill.id} className="border border-dashed border-line p-3 dark:border-line-dark">

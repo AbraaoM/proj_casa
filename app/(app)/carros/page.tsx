@@ -11,7 +11,7 @@ export default async function CarsPage() {
   if (page.status !== "ready") return <PageNotice status={page.status} />;
   const { data: vehicles, today } = page;
   return (
-    <ListPage title="Carros" intro="Manutenção, quilometragem e gastos de cada veículo." count={vehicles.length} empty="Nenhum veículo cadastrado. O James cadastra pela API.">
+    <ListPage title="Carros" intro="Manutenção, quilometragem e gastos de cada veículo." count={vehicles.length} empty="Nenhum veículo cadastrado. Peça ao seu agente para cadastrar.">
       {vehicles.map(({ subject: vehicle, active_items, summary }) => (
         <SubjectCard
           key={vehicle.id}

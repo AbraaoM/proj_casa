@@ -55,7 +55,7 @@ export default async function FinancePageRoute({ searchParams }: Props) {
               </>
             ) : null}
             {summary.accounts.length === 0 ? (
-              <p className="mt-3 text-sm text-ink-muted">Nenhuma conta cadastrada. Conte ao James suas contas e saldos.</p>
+              <p className="mt-3 text-sm text-ink-muted">Nenhuma conta cadastrada. Conte ao seu agente suas contas e saldos.</p>
             ) : null}
           </section>
 

@@ -8,7 +8,7 @@ import { getBillByRef } from "@/lib/repositories/finance";
 import { updateBill } from "@/lib/services/finance/bills";
 
 /**
- * The panel's only write: confirm (active) or dismiss (ended) a bill James suggested.
+ * The panel's only write: confirm (active) or dismiss (ended) a bill the agent suggested.
  * Anything that is not a suggestion anymore is left alone.
  */
 export async function decideSuggestedBill(formData: FormData): Promise<void> {

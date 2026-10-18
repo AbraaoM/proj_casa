@@ -3,7 +3,7 @@
 Personal app to help organize and manage my home life.  
 Focus on simplicity, clarity, beauty, and daily use on the phone.
 
-Extremely **agent-first / agent-friendly**: the application is primarily a visualizer and dashboard. Data inputs, updates, and maintenance are performed by an agent (Grok Bot named **James**). Design all data models, APIs, and interfaces so an AI agent can operate them reliably with minimal friction. User interaction should be mostly read-only or confirmation-based.
+Extremely **agent-first / agent-friendly**: the application is primarily a visualizer and dashboard. Data inputs, updates, and maintenance are performed by an agent (the user's own AI assistant, under whatever name they give it). Design all data models, APIs, and interfaces so an AI agent can operate them reliably with minimal friction. User interaction should be mostly read-only or confirmation-based.
 
 ## Start every session here
 1. Read this `AGENTS.md` completely.
@@ -60,13 +60,13 @@ The app surfaces what needs attention, timelines, and history. It does **not** a
 
 ## Agent-first architecture
 - Prefer clear, structured, machine-readable data models (PostgreSQL tables with good naming and constraints).
-- Expose dedicated API routes under `/api/agent/` designed for James:
+- Expose dedicated API routes under `/api/agent/` designed for the agent:
   - Consistent JSON request/response shapes
   - Clear error messages (never silent failures)
   - Idempotent operations where possible
   - Support for bulk or sequential updates
   - Endpoints for listing upcoming items, marking done, adding records, updating status
-- Document the agent API (simple README section or inline comments + TypeScript types) so James can operate it reliably.
+- Document the agent API (simple README section or inline comments + TypeScript types) so the agent can operate it reliably.
 - Authentication for agent routes: simple shared secret or API key (via environment variable). Never hardcode secrets.
 - User-facing UI is primarily visual: dashboards, lists, timelines, cards. Minimal forms. Prefer agent-driven data entry.
 - Business logic lives in dedicated modules (not mixed with UI components).

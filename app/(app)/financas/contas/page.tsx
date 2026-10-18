@@ -22,7 +22,7 @@ export default async function AccountsPage() {
       </div>
 
       {accounts.length === 0 ? (
-        <p className="mt-10 text-sm text-ink-muted">Nenhuma conta ainda. Conte ao James suas contas e saldos, e ele cadastra.</p>
+        <p className="mt-10 text-sm text-ink-muted">Nenhuma conta ainda. Conte ao seu agente suas contas e saldos, e ele cadastra.</p>
       ) : (
         <ul className="mt-10 grid grid-cols-1 gap-x-16 md:grid-cols-2">
           {accounts.map((account) => (

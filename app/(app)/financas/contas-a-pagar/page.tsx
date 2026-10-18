@@ -31,7 +31,7 @@ export default async function BillsPage() {
         <section className="min-w-0 border-t border-line pt-4 dark:border-line-dark">
           <h2 className="text-lg">Por vencimento</h2>
           {active.length === 0 ? (
-            <p className="mt-4 text-sm text-ink-muted">Nenhuma conta cadastrada. Conte ao James o que vence todo mês.</p>
+            <p className="mt-4 text-sm text-ink-muted">Nenhuma conta cadastrada. Conte ao seu agente o que vence todo mês.</p>
           ) : (
             <ul className="mt-4 space-y-6">
               {active.map((bill) => {

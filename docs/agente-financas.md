@@ -1,20 +1,20 @@
-# Finanças: guia do James
+# Finanças: guia para o agente
 
 As finanças da Casa são de entrada simples, em reais e em centavos inteiros (`amount_cents`). Cada lançamento é uma saída (`expense`), uma entrada (`income`) ou uma transferência entre contas (`transfer`). Não há partidas dobradas.
 
 Schema: `005_finance`. Rotas em `/api/agent/finance/…`, com o mesmo envelope `{ ok, data, meta }` (também nos erros: caminho inexistente responde 404 `not_found` e método errado 405 `method_not_allowed` com o header `Allow`), `external_key` idempotente, erros por campo e bulk com até 50 entradas. Contas, categorias e contas a pagar aceitam **slug** ou uuid na URL e nos campos.
 
-## Como o James trabalha
+## Como o agente trabalha
 
-O caminho principal é a conversa. O dono pede, e o James grava.
+O caminho principal é a conversa. O dono pede, e o agente grava.
 
-1. **Uma tarefa com custo.** O James conclui algo que custa dinheiro (consulta do cão, troca de óleo, conserto) e **pergunta o valor** no chat. Depois manda `amount_cents` no evento (`POST /events` ou `POST /items/:id/done`). O lançamento em Finanças nasce sozinho; não crie outro em `/finance/transactions`.
-2. **Uma conta que se repete.** O dono diz "a luz vence dia 10". O James confirma no chat e cria a bill já `active`.
-3. **Sugestões, com parcimônia.** `status: "suggested"` é só para quando o James notou algo recorrente e **não conseguiu confirmar no chat**. A sugestão aparece no painel com Confirmar e Dispensar, mas esse é o caminho raro. Prefira perguntar. Não crie mais de uma ou duas sugestões por vez, e não repita uma que o dono dispensou (`ended`).
+1. **Uma tarefa com custo.** O agente conclui algo que custa dinheiro (consulta do cão, troca de óleo, conserto) e **pergunta o valor** no chat. Depois manda `amount_cents` no evento (`POST /events` ou `POST /items/:id/done`). O lançamento em Finanças nasce sozinho; não crie outro em `/finance/transactions`.
+2. **Uma conta que se repete.** O dono diz "a luz vence dia 10". O agente confirma no chat e cria a bill já `active`.
+3. **Sugestões, com parcimônia.** `status: "suggested"` é só para quando o agente notou algo recorrente e **não conseguiu confirmar no chat**. A sugestão aparece no painel com Confirmar e Dispensar, mas esse é o caminho raro. Prefira perguntar. Não crie mais de uma ou duas sugestões por vez, e não repita uma que o dono dispensou (`ended`).
 
 ## Primeira configuração
 
-As categorias padrão vêm na migração (`GET /finance/categories`). As contas não: o James cria as que o dono contar, com o saldo de abertura.
+As categorias padrão vêm na migração (`GET /finance/categories`). As contas não: o agente cria as que o dono contar, com o saldo de abertura.
 
 ```bash
 curl -sS "$CASA_URL/api/agent/finance/accounts/bulk" \
@@ -110,7 +110,7 @@ curl -X PUT "$CASA_URL/api/agent/finance/budgets" ... -d '{ "month": null, "item
 ## Saldo real e conciliação
 
 - `POST /finance/accounts/itau/balance-checks` com `{ "date", "balance_cents" }`: o saldo que o banco mostra. A resposta traz a diferença para o calculado.
-- `POST /finance/accounts/itau/reconcile` com `{ "through": "2026-10-16" }`: se o calculado bate com o saldo informado naquele dia, marca os lançamentos até a data como `cleared`. Se não bate, devolve `reconciled: false` e a diferença; o James procura o lançamento que falta.
+- `POST /finance/accounts/itau/reconcile` com `{ "through": "2026-10-16" }`: se o calculado bate com o saldo informado naquele dia, marca os lançamentos até a data como `cleared`. Se não bate, devolve `reconciled: false` e a diferença; o agente procura o lançamento que falta.
 
 ## Resumo
 

@@ -51,7 +51,7 @@ function MedicationCard({ medication, today }: { medication: MedicationView; tod
             </p>
           </>
         ) : (
-          <p className="mt-1 text-sm text-ink-muted">Sem dose registrada ainda. O James registra.</p>
+          <p className="mt-1 text-sm text-ink-muted">Sem dose registrada ainda. O seu agente registra.</p>
         )}
       </div>
 

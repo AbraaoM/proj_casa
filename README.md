@@ -1,8 +1,8 @@
 # Casa
 
-Painel da casa. A tela mostra o que pede atenção. Quem grava os dados é o James, pela API em `/api/agent/`.
+Painel da casa. A tela mostra o que pede atenção. Quem grava os dados é o seu agente, pela API em `/api/agent/`.
 
-O painel pede usuário e senha. A conta inicial é `admin` / `admin`. Qualquer usuário logado cria outras contas e define a senha delas. A própria senha pede a senha atual. Não há recuperação de senha. O James usa uma chave gerada em Agentes, ou a variável `AGENT_API_KEY`. Ele não usa esse login.
+O painel pede usuário e senha. A conta inicial é `admin` / `admin`. Qualquer usuário logado cria outras contas e define a senha delas. A própria senha pede a senha atual. Não há recuperação de senha. O agente usa uma chave gerada em Agentes, ou a variável `AGENT_API_KEY`. Ele não usa esse login.
 
 Não publique este app numa URL aberta. A senha inicial é simples e qualquer conta pode trocar a senha das outras.
 
@@ -12,7 +12,7 @@ Só leitura. `/` mostra o que pede atenção. `/caes`, `/carros`, `/familia` e `
 
 `/financas?mes=AAAA-MM` mostra o mês: saldo de hoje, resultado, contas a pagar, orçamento e para onde foi o dinheiro. `/financas/lancamentos` lista os lançamentos com filtros (mês, tipo, conta, categoria, `origem=dog:<id>`); `/financas/contas` e `/financas/contas/:slug` mostram saldos e o saldo informado. `/financas/contas-a-pagar` lista as contas que se repetem por vencimento, com os últimos pagamentos; `/financas/orcamento` compara orçado e realizado por categoria e filhas, com os últimos 6 meses. A página do cartão mostra a fatura aberta e as próximas parcelas. As páginas de cão, carro e área levam a "Ver em Finanças".
 
-A única escrita do painel são os botões Confirmar e Dispensar das contas que o James sugeriu (`status: "suggested"`). É um caminho raro: o normal é o dono pedir ao James no chat.
+A única escrita do painel são os botões Confirmar e Dispensar das contas que o agente sugeriu (`status: "suggested"`). É um caminho raro: o normal é o dono pedir ao agente no chat.
 
 ## Stack
 
@@ -37,7 +37,7 @@ Sem `DATABASE_URL` o painel abre e diz que o banco não está ligado. As rotas d
 
 ## Agent API
 
-O passo a passo para ligar o James está em `docs/conectar-james.md`.
+O passo a passo para ligar o seu agente está em `docs/agente-conectar.md`.
 
 Todas as rotas exigem:
 
@@ -82,7 +82,7 @@ Datas são dias de calendário (`YYYY-MM-DD`) no fuso da casa (`America/Sao_Paul
 | GET | `/api/agent/items/:id` | item e os 20 eventos mais recentes |
 | PATCH | `/api/agent/items/:id` | atualiza campos do item |
 | POST | `/api/agent/items/:id/done` | marca feito e reagenda, se houver intervalo. Num remédio por hora, encerra o tratamento |
-| GET, POST | `/api/agent/items/:id/doses` | doses com horário de um remédio (`interval_hours`) e a próxima. O POST registra a dose sem concluir o item. Guia: `docs/doses-james.md` |
+| GET, POST | `/api/agent/items/:id/doses` | doses com horário de um remédio (`interval_hours`) e a próxima. O POST registra a dose sem concluir o item. Guia: `docs/agente-doses.md` |
 | GET, POST | `/api/agent/dogs` | lista e cria. `?include_archived=1` inclui arquivados |
 | GET, PATCH | `/api/agent/dogs/:id` | lê e atualiza. Arquivar: `{ "archived": true }` |
 | GET, POST | `/api/agent/family` | membros da família |
@@ -149,7 +149,7 @@ Evento errado é anulado com `PATCH /api/agent/events/:id` e `{ "voided": true }
 
 O `history` de cada sujeito devolve `active_items` (todas as pendências ativas, na ordem de atenção), `events` (até 200, mais novos primeiro) e `summary`: `last_by_category`, `weight_series`, `costs` (ano corrente, total e por categoria) e `oil` (última troca, dias e km desde ela).
 
-Sugestão de áreas e exemplo de importação: `docs/conectar-james.md`. Finanças: `docs/financas-james.md`.
+Sugestão de áreas e exemplo de importação: `docs/agente-conectar.md`. Finanças: `docs/agente-financas.md`.
 
 A atenção inclui só itens `active`: atrasados, hoje, dentro da janela (14 dias) e sem data. A ordem é atraso, hoje, prazo futuro, sem data. Dentro do grupo, `urgent` vem antes de `high`, `normal` e `low`.
 

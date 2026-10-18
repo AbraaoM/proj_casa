@@ -10,7 +10,7 @@ import { formatMoney } from "@/lib/ui/format";
 export function BudgetBars({ lines, month, showChildren = false }: { lines: BudgetLine[]; month: string; showChildren?: boolean }) {
   const shown = lines.filter((line) => (showChildren || line.parent_slug === null) && line.budget_cents !== null);
   if (shown.length === 0) {
-    return <p className="mt-4 text-sm text-ink-muted">Sem orçamento definido. Peça ao James.</p>;
+    return <p className="mt-4 text-sm text-ink-muted">Sem orçamento definido. Peça ao seu agente.</p>;
   }
   return (
     <ul className="mt-4 space-y-4">

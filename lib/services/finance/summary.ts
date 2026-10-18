@@ -34,7 +34,7 @@ export type FinanceSummary = {
   without_account_count: number;
 };
 
-/** Everything James needs to answer "how are the finances?" for one month, in one call. */
+/** Everything the agent needs to answer "how are the finances?" for one month, in one call. */
 export async function getFinanceSummary(sql: Sql, month: string, today: string): Promise<FinanceSummary> {
   const { from, to } = monthRange(month);
   const [categories, flows, accounts, budget, bills, recent, noAccount] = await Promise.all([

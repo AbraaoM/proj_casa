@@ -6,7 +6,7 @@ import { dayAndMonth } from "@/lib/ui/format";
 /** Transactions grouped by day (and by month when they span several), newest first. */
 export function TransactionList({
   transactions,
-  emptyText = "Nenhum lançamento. O James preenche isso.",
+  emptyText = "Nenhum lançamento. O seu agente preenche isso.",
 }: {
   transactions: FinTransaction[];
   emptyText?: string;

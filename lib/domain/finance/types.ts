@@ -146,7 +146,7 @@ export type BudgetRow = {
   amount_cents: number;
 };
 
-/** Listed by GET /api/agent/health so James knows the allowed values. Categories: GET /finance/categories. */
+/** Listed by GET /api/agent/health so the agent knows the allowed values. Categories: GET /finance/categories. */
 export const FINANCE_ENUMS = {
   account_kinds: ACCOUNT_KINDS,
   transaction_kinds: TRANSACTION_KINDS,
