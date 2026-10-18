@@ -2,7 +2,7 @@ import { isIsoDate } from "@/lib/domain/dates";
 import type { FieldError, ParseResult } from "@/lib/domain/validate";
 import type { ItemStatus } from "@/lib/domain/types";
 
-/** How far into the future a dose time may be (clock drift between James and the server). */
+/** How far into the future a dose time may be (clock drift between the agent and the server). */
 export const FUTURE_TOLERANCE_MS = 5 * 60_000;
 
 /** POST /api/agent/items/:id/doses */

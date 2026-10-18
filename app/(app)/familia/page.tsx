@@ -11,7 +11,7 @@ export default async function FamilyPage() {
   if (page.status !== "ready") return <PageNotice status={page.status} />;
   const { data: members, today } = page;
   return (
-    <ListPage title="Família" intro="Consultas, vacinas e remédios de cada pessoa." count={members.length} empty="Ninguém cadastrado. O James cadastra pela API.">
+    <ListPage title="Família" intro="Consultas, vacinas e remédios de cada pessoa." count={members.length} empty="Ninguém cadastrado. Peça ao seu agente para cadastrar.">
       {members.map(({ subject: member, active_items, summary }) => (
         <SubjectCard
           key={member.id}

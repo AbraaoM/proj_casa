@@ -10,7 +10,7 @@ import { formatMoney } from "@/lib/ui/format";
 export function BudgetBars({ lines, month, showChildren = false }: { lines: BudgetLine[]; month: string; showChildren?: boolean }) {
   const shown = lines.filter((line) => (showChildren || line.parent_slug === null) && line.budget_cents !== null);
   if (shown.length === 0) {
-    return <p className="mt-4 text-sm text-ink-muted">Sem orçamento definido. Peça ao James.</p>;
+    return <p className="mt-4 text-sm text-ink-muted">Sem orçamento definido. Peça ao seu agente.</p>;
   }
   return (
     <ul className="mt-4 space-y-4">
@@ -26,7 +26,7 @@ export function BudgetBars({ lines, month, showChildren = false }: { lines: Budg
               >
                 {line.name}
               </Link>
-              <p className={`shrink-0 tabular-nums ${line.over ? "font-semibold" : "text-ink-muted"}`}>
+              <p className={`shrink-0 tabular-nums ${line.over ? "font-medium text-red-700 dark:text-red-400" : "text-ink-muted"}`}>
                 {formatMoney(spent)} <span className="text-ink-faint">de</span> {formatMoney(line.budget_cents ?? 0)}
               </p>
             </div>
@@ -39,12 +39,12 @@ export function BudgetBars({ lines, month, showChildren = false }: { lines: Budg
               aria-valuenow={Math.round(ratio * 100)}
             >
               <div
-                className={`h-1 transition-[width] duration-500 ${line.over ? "bg-black dark:bg-white" : "bg-accent"}`}
+                className={`h-1 transition-[width] duration-500 ${line.over ? "bg-red-600 dark:bg-red-400" : "bg-accent"}`}
                 style={{ width: `${Math.round(ratio * 100)}%` }}
               />
             </div>
             {line.over ? (
-              <p className="mt-1 text-xs font-semibold">{formatMoney(-(line.remaining_cents ?? 0))} acima</p>
+              <p className="mt-1 text-xs font-medium text-red-700 dark:text-red-400">{formatMoney(-(line.remaining_cents ?? 0))} acima</p>
             ) : null}
           </li>
         );

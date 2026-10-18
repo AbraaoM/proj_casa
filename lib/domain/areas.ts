@@ -20,7 +20,7 @@ export type AreaInput = {
 export type AreaPatch = Partial<Omit<AreaInput, "slug">> & { archived?: boolean };
 
 /**
- * Suggested starting list for a house. Not seeded: James creates the real ones
+ * Suggested starting list for a house. Not seeded: the agent creates the real ones
  * through POST /api/agent/areas/bulk after the owner confirms them.
  */
 export const SUGGESTED_AREAS: ReadonlyArray<Pick<AreaInput, "slug" | "name" | "kind">> = [

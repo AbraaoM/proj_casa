@@ -6,7 +6,7 @@ import { categoryUnlessTitle, dayAndMonth, formatKg, formatKm, formatMoney } fro
 export function Timeline({
   events,
   showSubject = false,
-  emptyText = "Nenhum registro ainda. O James preenche isso.",
+  emptyText = "Nenhum registro ainda. O seu agente preenche isso.",
   timeZone = DEFAULT_TIMEZONE,
 }: {
   events: CareEvent[];

@@ -11,7 +11,7 @@ export default async function DogsPage() {
   if (page.status !== "ready") return <PageNotice status={page.status} />;
   const { data: dogs, today } = page;
   return (
-    <ListPage title="Cães" intro="Cada cão com o que vem pela frente e o que já foi feito." count={dogs.length} empty="Nenhum cão cadastrado. O James cadastra pela API.">
+    <ListPage title="Cães" intro="Cada cão com o que vem pela frente e o que já foi feito." count={dogs.length} empty="Nenhum cão cadastrado. Peça ao seu agente para cadastrar.">
       {dogs.map(({ subject: dog, active_items, summary }) => {
         const vet = summary.last_by_category.vet;
         const vaccine = summary.last_by_category.vaccine;

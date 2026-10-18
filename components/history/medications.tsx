@@ -2,6 +2,7 @@ import { localDay, localTime } from "@/lib/domain/doses";
 import type { MedicationView } from "@/lib/services/doses";
 import { dayWord, intervalPhrase, untilPhrase } from "@/lib/ui/doses";
 import { formatDate } from "@/lib/ui/format";
+import { ItemActions } from "@/components/one-tap/item-actions";
 
 /** Medication with a schedule in hours: next dose up top, doses of the last 48 h below. */
 export function Medications({ medications, today }: { medications: MedicationView[]; today: string }) {
@@ -51,8 +52,9 @@ function MedicationCard({ medication, today }: { medication: MedicationView; tod
             </p>
           </>
         ) : (
-          <p className="mt-1 text-sm text-ink-muted">Sem dose registrada ainda. O James registra.</p>
+          <p className="mt-1 text-sm text-ink-muted">Sem dose registrada ainda.</p>
         )}
+        <ItemActions item={item} />
       </div>
 
       {doses.length > 0 ? (

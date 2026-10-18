@@ -30,7 +30,7 @@ export default async function HousePage() {
       <h1 className="mt-6 font-display text-5xl leading-none tracking-tight md:text-6xl">Casa</h1>
       <p className="mt-3 max-w-md text-base text-ink-muted">Cada cômodo, a área externa e os sistemas da casa, com o que vem pela frente e o que já foi feito.</p>
       {!hasAreas ? (
-        <p className="mt-8 max-w-md text-sm text-ink-muted">Nenhuma área cadastrada ainda. O James cria as áreas pela API; até lá, tudo aparece em Geral.</p>
+        <p className="mt-8 max-w-md text-sm text-ink-muted">Nenhuma área cadastrada ainda. O seu agente cria as áreas; até lá, tudo aparece em Geral.</p>
       ) : null}
 
       {groups.map((group) => (

@@ -4,6 +4,7 @@ import { todayInTimeZone } from "@/lib/domain/dates";
 import { DEFAULT_LOCATION, type Domain, type AttentionItem, type AttentionSummary, type HouseholdSettings } from "@/lib/domain/types";
 import { listDogs, listFamily, listVehicles } from "@/lib/repositories/subjects";
 import type { FinBill } from "@/lib/domain/finance/types";
+import type { TapBill } from "@/lib/domain/one-tap";
 import { listBills } from "@/lib/repositories/finance";
 import { listAttention } from "@/lib/services/attention";
 import { getBudgetView } from "@/lib/services/finance/budgets";
@@ -44,6 +45,8 @@ export type DashboardFinance = {
   expense_cents: number;
   budget_cents: number;
   suggested: FinBill[];
+  /** Active bills by their reminder item, for the Paguei button. */
+  bills: Record<string, TapBill>;
 };
 
 export type SubjectLink = { id: string; name: string; href: string };
@@ -83,8 +86,16 @@ async function loadFromDatabase(sql: Sql): Promise<DashboardData> {
 async function loadFinance(sql: Sql, today: string): Promise<DashboardFinance | null> {
   try {
     const month = today.slice(0, 7);
-    const [budget, suggested] = await Promise.all([getBudgetView(sql, month), listBills(sql, ["suggested"])]);
-    return { month, expense_cents: budget.total_spent_cents, budget_cents: budget.total_budget_cents, suggested };
+    const [budget, bills] = await Promise.all([getBudgetView(sql, month), listBills(sql, ["suggested", "active"])]);
+    const byItem: Record<string, TapBill> = {};
+    for (const bill of bills) if (bill.status === "active" && bill.care_item_id) byItem[bill.care_item_id] = bill;
+    return {
+      month,
+      expense_cents: budget.total_spent_cents,
+      budget_cents: budget.total_budget_cents,
+      suggested: bills.filter((bill) => bill.status === "suggested"),
+      bills: byItem,
+    };
   } catch (error) {
     if (!isMissingSchema(error)) console.error(error);
     return null;

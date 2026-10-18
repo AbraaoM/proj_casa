@@ -1,11 +1,13 @@
 import type { Sql } from "@/lib/db/client";
 import { isUniqueViolation } from "@/lib/db/errors";
 import { itemStatusForBill, planBillPayment } from "@/lib/domain/finance/bills";
+import { retreatBill } from "@/lib/domain/finance/recurrence";
 import type { FinBill, FinCategory, FinTransaction } from "@/lib/domain/finance/types";
 import type { BillInput, BillPatch, PayInput } from "@/lib/domain/finance/validate";
 import type { CareEvent, CareItem } from "@/lib/domain/types";
 import { notFound, validationError } from "@/lib/errors";
 import * as repo from "@/lib/repositories/finance";
+import * as eventsRepo from "@/lib/repositories/events";
 import * as itemsRepo from "@/lib/repositories/items";
 import { mirrorEvent } from "@/lib/services/finance/mirror";
 import { optionalAccountField, requireCategoryField } from "@/lib/services/finance/refs";
@@ -207,4 +209,22 @@ export async function payBill(sql: Sql, ref: string, input: PayInput, today: str
   const transaction = await mirrorEvent(sql, written.event, { category: null, account, bill });
   bill = (await repo.updateBill(sql, bill.id, plan.bill)) as FinBill;
   return { bill, item: written.item, event: written.event, transaction, idempotentReplay: false };
+}
+
+/**
+ * A payment was voided. When it was the bill's newest live payment, the bill goes
+ * back to the due date it had settled (installment returned, ended → active) and the
+ * reminder follows. An older payment leaves the dates alone. Returns a note for the caller.
+ */
+export async function unpayBill(sql: Sql, bill: FinBill, voided: CareEvent): Promise<string> {
+  const itemId = voided.care_item_id as string;
+  const newer = await eventsRepo.latestLiveItemEvent(sql, itemId, voided.id);
+  const isNewer =
+    newer !== null && (newer.done_on > voided.done_on || (newer.done_on === voided.done_on && newer.created_at > voided.created_at));
+  if (isNewer) return "A newer payment of this bill is still live, so its due date was not moved.";
+  const back = retreatBill(bill);
+  const updated = (await repo.updateBill(sql, bill.id, back)) as FinBill;
+  await syncItem(sql, updated);
+  await itemsRepo.updateItem(sql, itemId, { last_done_on: newer?.done_on ?? null });
+  return `The bill moved back to its due date ${back.next_due_date}.`;
 }

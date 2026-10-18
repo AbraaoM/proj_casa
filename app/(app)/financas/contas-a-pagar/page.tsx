@@ -1,8 +1,7 @@
 import { attentionPhrase } from "@/lib/domain/attention";
 import { FinancePage } from "@/components/finance/finance-page";
-import { PayButton } from "@/components/finance/pay-button";
+import { BillActions } from "@/components/one-tap/item-actions";
 import { SuggestedBills } from "@/components/finance/suggested-bills";
-import { centsToReaisInput } from "@/lib/domain/finance/screen-pay";
 import { PageNotice } from "@/components/history/page-notice";
 import { Stat } from "@/components/history/stat";
 import { loadBillsPage } from "@/lib/services/finance-pages";
@@ -31,7 +30,7 @@ export default async function BillsPage() {
         <section className="min-w-0 border-t border-line pt-4 dark:border-line-dark">
           <h2 className="text-lg">Por vencimento</h2>
           {active.length === 0 ? (
-            <p className="mt-4 text-sm text-ink-muted">Nenhuma conta cadastrada. Conte ao James o que vence todo mês.</p>
+            <p className="mt-4 text-sm text-ink-muted">Nenhuma conta cadastrada. Conte ao seu agente o que vence todo mês.</p>
           ) : (
             <ul className="mt-4 space-y-6">
               {active.map((bill) => {
@@ -63,7 +62,7 @@ export default async function BillsPage() {
                     </p>
                     {bill.kind !== "income" && bill.days_until_due <= 7 ? (
                       <div className="mt-2">
-                        <PayButton billId={bill.id} dueDate={bill.next_due_date} name={bill.name} variable={bill.amount_varies} expected={centsToReaisInput(bill.amount_cents)} align="start" />
+                        <BillActions bill={bill} name={bill.name} />
                       </div>
                     ) : null}
                     {bill.payments.length > 0 ? (

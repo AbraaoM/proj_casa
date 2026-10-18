@@ -1,8 +1,8 @@
-# Conectar o James
+# Conectar o seu agente
 
-O James grava e atualiza a Casa pela API em `/api/agent/`. O painel só lê. Ele não usa a chave do James.
+O seu agente (qualquer assistente, com o nome que você der) grava e atualiza a Casa pela API em `/api/agent/`. O painel lê e tem só botões de um toque. O painel não usa a chave do agente.
 
-O painel tem um login separado (`admin` / `admin` na primeira conta). Esse login não autentica o James. Deixe o app em `localhost` nesta etapa. Uma URL pública deixaria a casa exposta: a senha inicial é simples e qualquer conta pode trocar a senha das outras.
+O painel tem um login separado (`admin` / `admin` na primeira conta). Esse login não autentica o agente. Deixe o app em `localhost` nesta etapa. Uma URL pública deixaria a casa exposta: a senha inicial é simples e qualquer conta pode trocar a senha das outras.
 
 A tabela completa de rotas está no `README.md`. Este arquivo cobre só a ligação.
 
@@ -18,9 +18,9 @@ A versão esperada é `006_medication_doses`.
 
 ## 2. Crie a chave
 
-Entre no painel (`admin` / `admin` na primeira conta) e abra **Agentes**. Dê um nome, por exemplo James, e use **Gerar chave**. Copie o segredo na hora. Recarregar a página esconde a chave, porque o banco guarda só o hash.
+Entre no painel (`admin` / `admin` na primeira conta) e abra **Agentes**. Dê o nome do seu agente e use **Gerar chave**. Copie o segredo na hora. Recarregar a página esconde a chave, porque o banco guarda só o hash.
 
-Entregue a chave ao James fora do git. Uma chave revogada deixa de funcionar na hora. Gere outra se precisar.
+Entregue a chave ao agente fora do git. Uma chave revogada deixa de funcionar na hora. Gere outra se precisar.
 
 `AGENT_API_KEY` no `.env.local` continua válida, para quem já usa essa variável. O painel não depende dela. Sem chave ativa e sem essa variável, toda rota do agente responde `503` com `agent_not_configured`.
 
@@ -30,19 +30,19 @@ Entregue a chave ao James fora do git. Uma chave revogada deixa de funcionar na 
 npm run dev
 ```
 
-A base é a URL que o Next imprimir, por exemplo `http://localhost:3000`. Se essa porta já estiver ocupada, use a porta que aparecer no terminal. O James chama essa origem mais `/api/agent/...`.
+A base é a URL que o Next imprimir, por exemplo `http://localhost:3000`. Se essa porta já estiver ocupada, use a porta que aparecer no terminal. O agente chama essa origem mais `/api/agent/...`.
 
-## 4. Entregue isto ao James
+## 4. Entregue isto ao agente
 
-Passe no chat do James, fora do git:
+Passe no chat do agente, fora do git:
 
 - a base, como `http://localhost:3000`
 - a chave, uma única vez
 - este arquivo e o `README.md`
 
-Peça para ele guardar a chave só na sessão e começar pelo health check. Se o James não roda nesta máquina, `localhost` não chega até ele. Não publique o app para contornar isso.
+Peça para ele guardar a chave só na sessão e começar pelo health check. Se o agente não roda nesta máquina, `localhost` não chega até ele. Não publique o app para contornar isso.
 
-## 5. Como o James autentica
+## 5. Como o agente autentica
 
 Toda chamada leva:
 
@@ -120,7 +120,7 @@ curl -sS "$CASA_URL/api/agent/items" \
 
 ## 8. Configure as áreas da casa
 
-A migration não cria áreas. O James cria as áreas reais depois de confirmar com o dono quais cômodos existem. Lista sugerida, para ajustar à casa:
+A migration não cria áreas. O agente cria as áreas reais depois de confirmar com o dono quais cômodos existem. Lista sugerida, para ajustar à casa:
 
 | slug | nome | kind |
 | --- | --- | --- |
@@ -183,20 +183,22 @@ Uma `external_key` estável por evento (por exemplo `domínio:sujeito:categoria:
 
 ## 10. Finanças
 
-As categorias padrão já vêm no banco. O James cria as contas que o dono contar (`POST /api/agent/finance/accounts/bulk`, com o saldo de abertura) e passa a mandar `amount_cents` nos eventos que custam dinheiro. O guia completo, com exemplos, está em `docs/financas-james.md`.
+As categorias padrão já vêm no banco. O agente cria as contas que o dono contar (`POST /api/agent/finance/accounts/bulk`, com o saldo de abertura) e passa a mandar `amount_cents` nos eventos que custam dinheiro. O guia completo, com exemplos, está em `docs/agente-financas.md`.
 
-O caminho principal é o chat: quando uma tarefa implica custo (uma consulta, um conserto), o James pergunta o valor e grava no evento. Contas que se repetem entram já confirmadas. A sugestão (`status: "suggested"`), com os botões Confirmar e Dispensar no painel, é o caminho raro: use só quando não der para confirmar na conversa, e pouco.
+O caminho principal é o chat: quando uma tarefa implica custo (uma consulta, um conserto), o agente pergunta o valor e grava no evento. Contas que se repetem entram já confirmadas. A sugestão (`status: "suggested"`), com os botões Confirmar e Dispensar no painel, é o caminho raro: use só quando não der para confirmar na conversa, e pouco.
 
-## Regras para o James
+## Regras para o agente
 
 - Datas são `YYYY-MM-DD`, no fuso da casa. "Hoje" é esse fuso, não o relógio do servidor.
 - Cão exige só `dog_id`. Família exige só `family_member_id`. Carro exige só `vehicle_id`. Casa e finanças recusam os três.
 - Categoria é um slug `^[a-z0-9_]{1,40}$`. A lista recomendada vem em `data.recommended_categories` no health.
 - Não há delete. Arquivar cão, pessoa, veículo ou área é `PATCH` com `{ "archived": true }`. Item encerrado vai para `cancelled` ou `completed`.
 - Evento lançado errado é anulado com `PATCH /api/agent/events/:id` e `{ "voided": true }`. Ele sai do histórico e dos resumos, mas continua no banco. `{ "voided": false }` desfaz.
+- Um evento anulado libera a sua `external_key`: a mesma chamada depois grava um registro novo (o anulado fica com a chave renomeada para `<chave>~voided~<id>`).
+- O dono registra pela tela só com botões de um toque, com chaves `ui:pay:<bill>:<vencimento>`, `ui:done:<item>:<vencimento>` e `ui:dose:<item>:<horário>`. "+1 dia" e "Ignorar" mudam só o `due_date` do item (Ignorar pula para o próximo ciclo, sem evento). Desfazer, em até 5 s, anula o evento ou devolve a data. Ao ver um evento `ui:*`, trate como registrado pelo dono; não registre de novo.
 - `weight_kg` só vale para cão e `odometer_km` só para carro. Em outro domínio, a API responde `validation_error`.
 - Em cada criação, mande uma `external_key` estável. Repetir a chamada deve ser seguro.
 - Campo desconhecido no JSON responde `400` com `validation_error`. Leia `error.details`.
 - Dinheiro é sempre em centavos inteiros. Custo de um setor vai no evento (`amount_cents`); o lançamento em Finanças nasce dele. Não crie um segundo lançamento para o mesmo gasto.
 - Prefira confirmar contas e gastos no chat. Sugestão no painel é exceção.
-- O painel chama os serviços direto. O James não precisa da chave para a tela existir, e a tela não grava no lugar dele.
+- O painel chama os serviços direto. O agente não precisa da chave para a tela existir, e a tela não grava no lugar dele.

@@ -37,7 +37,7 @@ export default async function AccountPage({ params }: Props) {
               ? check.difference_cents === 0
                 ? `confere em ${formatDate(check.date)}`
                 : `em ${formatDate(check.date)} · diferença de ${formatMoney(check.difference_cents)}`
-              : "o James registra quando você contar"
+              : "o seu agente registra quando você contar"
           }
         />
       </div>

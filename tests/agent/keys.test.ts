@@ -31,7 +31,7 @@ describe("agent key material", () => {
 
 describe("agent key label", () => {
   test("trims a usable name", () => {
-    expect(parseAgentLabel("  James  ")).toEqual({ ok: true, value: "James" });
+    expect(parseAgentLabel("  Agente  ")).toEqual({ ok: true, value: "Agente" });
   });
 
   test("rejects an empty name", () => {

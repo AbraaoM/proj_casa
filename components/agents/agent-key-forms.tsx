@@ -79,7 +79,7 @@ export function CreateKeyForm({ action }: { action: Action }) {
         <input
           id={`${id}-label`}
           name="label"
-          defaultValue="James"
+          placeholder="Nome do seu agente"
           autoComplete="off"
           required
           maxLength={64}

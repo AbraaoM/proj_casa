@@ -1,4 +1,4 @@
-# Doses de remédio: guia do James
+# Doses de remédio: guia para o agente
 
 Remédio com horário (um analgésico de 6 em 6 h, uma vitamina 1x ao dia) é um **item** da pessoa com `interval_hours`. Cada dose dada é um **evento** desse item, com data e hora (`done_at`). Registrar a dose **não conclui** o item: ele segue ativo e a próxima dose é recalculada.
 

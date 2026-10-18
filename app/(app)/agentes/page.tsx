@@ -18,7 +18,7 @@ export default async function AgentsPage() {
     <main className="mx-auto w-full max-w-3xl px-5 py-8 md:max-w-5xl md:px-10 md:py-12">
       <h1 className="font-display text-3xl leading-tight tracking-tight">Agentes</h1>
       <p className="mt-3 max-w-xl text-sm text-ink-muted">
-        Gere uma chave e entregue o segredo ao James. Ela aparece uma vez. Recarregar esta página esconde a chave.
+        Gere uma chave e entregue o segredo ao seu agente. Ela aparece uma vez. Recarregar esta página esconde a chave.
       </p>
       {notice ? <p className="mt-4 max-w-xl text-sm">{notice}</p> : null}
 

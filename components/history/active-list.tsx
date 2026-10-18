@@ -3,6 +3,7 @@ import type { AttentionItem } from "@/lib/domain/types";
 import { markerClass, priorityWord } from "@/lib/ui/attention";
 import { categoryUnlessTitle } from "@/lib/ui/format";
 import { AttentionMark, EmptyNote } from "@/components/ui/attention-mark";
+import { ItemActions } from "@/components/one-tap/item-actions";
 
 export function ActiveList({ items, showSubject = false }: { items: AttentionItem[]; showSubject?: boolean }) {
   if (items.length === 0) return <EmptyNote>Nada pendente</EmptyNote>;
@@ -20,6 +21,7 @@ export function ActiveList({ items, showSubject = false }: { items: AttentionIte
             {categoryUnlessTitle(item.category, item.title) ? ` · ${categoryUnlessTitle(item.category, item.title)}` : ""}
             {priorityWord(item.priority) ? ` · ${priorityWord(item.priority)}` : ""}
           </p>
+          <ItemActions item={item} />
         </li>
       ))}
     </ul>

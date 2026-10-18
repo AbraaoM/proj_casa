@@ -5,7 +5,7 @@ import type { FinTransaction } from "@/lib/domain/finance/types";
 import type { DoneInput } from "@/lib/domain/validate";
 import { AppError, notFound, validationError } from "@/lib/errors";
 import { findBillByItem } from "@/lib/repositories/finance";
-import { payBill } from "@/lib/services/finance/bills";
+import { payBill, unpayBill } from "@/lib/services/finance/bills";
 import { mirrorEvent, resolveEventFinance } from "@/lib/services/finance/mirror";
 import { getAreaByRef } from "@/lib/repositories/areas";
 import * as eventsRepo from "@/lib/repositories/events";
@@ -108,8 +108,9 @@ export async function getEvent(sql: Sql, id: string): Promise<CareEvent> {
 
 /**
  * Corrects an event. Voiding hides it from history and summaries without deleting it.
- * A dog's weight follows its newest live weight event afterwards. The item's schedule
- * is not moved back: use PATCH /items/:id for that.
+ * A dog's weight follows its newest live weight event afterwards. Voiding a bill's
+ * newest payment moves the bill back to that due date; any other item's schedule is
+ * not moved back: use PATCH /items/:id for that.
  */
 export async function updateEvent(
   sql: Sql,
@@ -138,7 +139,11 @@ export async function updateEvent(
 
   const notes: string[] = [];
   const touchesSchedule = patch.voided !== undefined || patch.done_on !== undefined;
-  if (event.care_item_id && event.done_at !== null && touchesSchedule) {
+  const bill = event.care_item_id && touchesSchedule ? await findBillByItem(sql, event.care_item_id) : null;
+  if (bill) {
+    // Voiding a bill payment gives the due date back (lifting a void does not pay again).
+    if (patch.voided === true && current.voided_at === null) notes.push(await unpayBill(sql, bill, event));
+  } else if (event.care_item_id && event.done_at !== null && touchesSchedule) {
     // A dose: the hourly schedule follows the newest live dose again.
     const settings = await readSettings(sql);
     await refreshDoseSchedule(sqlDoseStore(sql), event.care_item_id, settings.timezone);
