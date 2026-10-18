@@ -164,7 +164,7 @@ function FinanceLine({ finance }: { finance: DashboardFinance }) {
   return (
     <p className="mt-3 text-sm text-ink-muted">
       Saídas de {month}:{" "}
-      <span className={`tabular-nums ${over ? "font-semibold text-black dark:text-white" : "text-black dark:text-white"}`}>
+      <span className={`tabular-nums ${over ? "font-medium text-red-700 dark:text-red-400" : "text-black dark:text-white"}`}>
         {formatMoney(finance.expense_cents)}
       </span>
       {finance.budget_cents > 0 ? ` de ${formatMoney(finance.budget_cents)} orçados` : ""}

@@ -23,12 +23,13 @@ export type SubjectKind = (typeof SUBJECT_KINDS)[number];
 export const DEFAULT_WITHIN_DAYS = 14;
 export const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 
+/** Fallback until the household sets its own city (PUT /api/agent/settings). A generic capital, not anyone's home. */
 export const DEFAULT_LOCATION = {
-  city: "Pindamonhangaba",
+  city: "São Paulo",
   region: "SP",
   country: "BR",
-  latitude: -22.9239,
-  longitude: -45.4617,
+  latitude: -23.5505,
+  longitude: -46.6333,
   timezone: DEFAULT_TIMEZONE,
 } as const;
 

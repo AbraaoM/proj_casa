@@ -16,7 +16,7 @@ O painel só escreve por botões de um toque: **Paguei**, **Dose dada**, **Feito
 
 ## Stack
 
-Next.js (App Router), TypeScript, Tailwind, Neon Postgres (`@neondatabase/serverless`). O clima vem da Open-Meteo, sem chave. A cidade padrão é Pindamonhangaba, SP, e pode ser trocada em `/api/agent/settings`.
+Next.js (App Router), TypeScript, Tailwind, Neon Postgres (`@neondatabase/serverless`). O clima vem da Open-Meteo, sem chave. A cidade da casa fica no banco e é trocada em `/api/agent/settings`; sem ela, o código usa São Paulo, SP. A migration inicial já grava uma cidade; troque pela sua.
 
 ## Ambiente
 

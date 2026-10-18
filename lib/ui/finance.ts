@@ -27,16 +27,21 @@ export function transactionAmount(tx: Pick<FinTransaction, "kind" | "amount_cent
 }
 
 /** The grey line under a transaction: category, account, origin, installment, payee. */
+function sameText(left: string, right: string | null | undefined): boolean {
+  return Boolean(right) && left.trim().toLocaleLowerCase("pt-BR") === (right as string).trim().toLocaleLowerCase("pt-BR");
+}
+
 export function transactionDetails(tx: FinTransaction): string {
   const parts: string[] = [];
   if (tx.kind === "transfer") parts.push(`${tx.account_name ?? "?"} → ${tx.to_account_name ?? "?"}`);
   else {
-    if (tx.category_name) parts.push(tx.category_name);
+    // "Mercado · Mercado" says nothing twice: the category shows only when it adds something.
+    if (tx.category_name && !sameText(tx.category_name, tx.description)) parts.push(tx.category_name);
     if (tx.account_name) parts.push(tx.account_name);
   }
   if (tx.origin_domain && tx.origin_domain !== "finance") parts.push([ORIGIN_LABELS[tx.origin_domain] ?? tx.origin_domain, tx.origin_subject_name].filter(Boolean).join(" · "));
   if (tx.installment_n && tx.installment_total) parts.push(`${tx.installment_n}/${tx.installment_total}`);
-  if (tx.payee && tx.kind !== "transfer") parts.push(tx.payee);
+  if (tx.payee && tx.kind !== "transfer" && !sameText(tx.payee, tx.description)) parts.push(tx.payee);
   return parts.join(" · ");
 }
 

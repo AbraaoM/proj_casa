@@ -41,14 +41,20 @@ export default async function FinancePageRoute({ searchParams }: Props) {
             <p className="mt-1 font-display text-4xl leading-tight tracking-tight tabular-nums">
               {summary.accounts.length > 0 ? formatMoney(summary.net_worth.net_cents) : "—"}
             </p>
-            <p className="mt-1 text-sm text-ink-muted">
-              Em {monthName}: entrou <span className="text-black tabular-nums dark:text-white">{formatMoney(summary.income_cents)}</span> · saiu{" "}
-              <span className="text-black tabular-nums dark:text-white">{formatMoney(summary.expense_cents)}</span>
-            </p>
+            <dl className="mt-2 grid grid-cols-2 gap-x-4 text-sm">
+              <div>
+                <dt className="text-ink-muted">Entrou em {monthName}</dt>
+                <dd className="tabular-nums">{formatMoney(summary.income_cents)}</dd>
+              </div>
+              <div>
+                <dt className="text-ink-muted">Saiu em {monthName}</dt>
+                <dd className="tabular-nums">{formatMoney(summary.expense_cents)}</dd>
+              </div>
+            </dl>
             {totalBudget > 0 ? (
               <>
                 <Meter ratio={budgetRatio(summary.budget.total_spent_cents, totalBudget)} over={summary.budget.total_spent_cents > totalBudget} label="Orçamento do mês" />
-                <p className="mt-1 text-xs text-ink-muted">
+                <p className={`mt-1 text-xs ${summary.budget.total_spent_cents > totalBudget ? "font-medium text-red-700 dark:text-red-400" : "text-ink-muted"}`}>
                   {Math.round((summary.budget.total_spent_cents / totalBudget) * 100)}% do orçamento de {formatMoney(totalBudget)}
                 </p>
               </>
@@ -117,9 +123,11 @@ export default async function FinancePageRoute({ searchParams }: Props) {
                     {budget ? (
                       <>
                         <Meter ratio={budgetRatio(category.amount_cents, budget)} over={Boolean(line?.over)} label={`${category.name} no orçamento`} />
-                        {line?.over ? <span className="mt-0.5 block text-xs font-semibold">{formatMoney(-(line.remaining_cents ?? 0))} acima</span> : null}
+                        {line?.over ? <span className="mt-0.5 block text-xs font-medium text-red-700 dark:text-red-400">{formatMoney(-(line.remaining_cents ?? 0))} acima</span> : null}
                       </>
-                    ) : null}
+                    ) : (
+                      <span className="mt-0.5 block text-xs text-ink-muted">sem orçamento</span>
+                    )}
                   </RowLink>
                 );
               })
@@ -152,7 +160,7 @@ function Meter({ ratio, over, label }: { ratio: number; over: boolean; label: st
   const percent = Math.round(ratio * 100);
   return (
     <span className="mt-2 block h-1.5 w-full overflow-hidden rounded-full bg-line dark:bg-line-dark" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-      <span className={`block h-full rounded-full ${over ? "bg-black dark:bg-white" : "bg-accent"}`} style={{ width: `${percent}%` }} />
+      <span className={`block h-full rounded-full ${over ? "bg-red-600 dark:bg-red-400" : "bg-accent"}`} style={{ width: `${percent}%` }} />
     </span>
   );
 }

@@ -18,6 +18,10 @@ describe("finance ui helpers", () => {
     expect(transactionDetails(tx({ kind: "transfer", account_name: "Itaú", to_account_name: "Nubank", origin_domain: null, payee: null }))).toBe("Itaú → Nubank");
     expect(transactionDetails(tx({ origin_domain: "finance", installment_n: 2, installment_total: 10, payee: null }))).toBe("Saúde dos pets · Itaú · 2/10");
   });
+  test("details skip a category or payee that repeats the description", () => {
+    const market = { description: "Mercado", category_name: "Mercado", payee: "mercado", origin_domain: null, account_name: "Conta corrente" };
+    expect(transactionDetails(tx(market))).toBe("Conta corrente");
+  });
   test("due marker, frequency, ratio and month", () => {
     expect([dueAttention(-1), dueAttention(0), dueAttention(3)]).toEqual(["overdue", "due_today", "upcoming"]);
     expect(frequencyPhrase("monthly", 1)).toBe("Todo mês");
