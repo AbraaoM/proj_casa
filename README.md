@@ -12,7 +12,7 @@ Só leitura. `/` mostra o que pede atenção. `/caes`, `/carros`, `/familia` e `
 
 `/financas?mes=AAAA-MM` mostra o mês: saldo de hoje, resultado, contas a pagar, orçamento e para onde foi o dinheiro. `/financas/lancamentos` lista os lançamentos com filtros (mês, tipo, conta, categoria, `origem=dog:<id>`); `/financas/contas` e `/financas/contas/:slug` mostram saldos e o saldo informado. `/financas/contas-a-pagar` lista as contas que se repetem por vencimento, com os últimos pagamentos; `/financas/orcamento` compara orçado e realizado por categoria e filhas, com os últimos 6 meses. A página do cartão mostra a fatura aberta e as próximas parcelas. As páginas de cão, carro e área levam a "Ver em Finanças".
 
-A única escrita do painel são os botões Confirmar e Dispensar das contas que o agente sugeriu (`status: "suggested"`). É um caminho raro: o normal é o dono pedir ao agente no chat.
+O painel só escreve por botões de um toque: **Paguei**, **Dose dada**, **Feito**, **+1 dia**, **Ignorar** (pula para o próximo ciclo) e Confirmar/Dispensar de conta sugerida. Não há formulário fora do login e da administração. Cada toque é idempotente e mostra **Desfazer** por 5 s; desfazer anula o registro, não apaga. O normal continua sendo o dono pedir ao agente no chat. Detalhes para o agente: `docs/agente-conectar.md`.
 
 ## Stack
 
@@ -145,7 +145,7 @@ Campos opcionais: `notes`, `provider` (clínica, oficina), `amount_cents` (vira 
 
 O peso do cão passa a ser o do evento com peso mais recente que não foi anulado. Um registro antigo entra no histórico sem mudar o peso atual. O hodômetro só sobe.
 
-Evento errado é anulado com `PATCH /api/agent/events/:id` e `{ "voided": true }`. Não há delete. Anular não mexe no prazo da pendência ligada; a resposta avisa em `meta.notes`, e o ajuste é `PATCH /items/:id`.
+Evento errado é anulado com `PATCH /api/agent/events/:id` e `{ "voided": true }`. Não há delete. Anular o pagamento mais recente de uma conta devolve o vencimento da conta (e a parcela). Nas outras pendências, anular não mexe no prazo; a resposta avisa em `meta.notes`, e o ajuste é `PATCH /items/:id`. Um evento anulado libera a sua `external_key`: repetir a mesma chamada depois grava um registro novo.
 
 O `history` de cada sujeito devolve `active_items` (todas as pendências ativas, na ordem de atenção), `events` (até 200, mais novos primeiro) e `summary`: `last_by_category`, `weight_series`, `costs` (ano corrente, total e por categoria) e `oil` (última troca, dias e km desde ela).
 

@@ -93,7 +93,8 @@ Todo evento com `amount_cents > 0` e não anulado vira **um** lançamento `expen
 - Cada bill ganha uma pendência `finance` (aparece no painel como qualquer lembrete). `care_item_id` adota uma pendência `finance` que já existe, em vez de criar outra.
 - **Pagar**: `POST /finance/bills/energia/pay` com `{ "paid_on", "amount_cents", "account", "external_key" }`. Registra o evento na pendência, cria o lançamento (`source: "bill"`) e avança bill e pendência para o próximo vencimento. `POST /items/:id/done` na pendência da bill faz o mesmo.
 - **Várias de uma vez**: `POST /finance/bills/bulk` com `{ "items": [ … ] }` (até 50). Cada entrada tem o próprio `ok`; repetir a chamada não duplica (slug e `external_key`).
-- O dono também pode tocar **Paguei** na tela de Finanças. Isso usa a mesma regra do `pay` (hoje, valor previsto ou o digitado, conta da bill) com `external_key` `ui:pay:<bill id>:<vencimento>`. Antes de pagar pela API, consulte a bill: se o vencimento já avançou, ela já foi paga.
+- O dono também pode tocar **Paguei** no painel e em Finanças. Isso usa a mesma regra do `pay` (hoje, **sempre o valor previsto**, conta da bill) com `external_key` `ui:pay:<bill id>:<vencimento>`. Numa conta variável o botão mostra o previsto ("Paguei ~210"); quando o dono contar o valor real, corrija com `PATCH /events/:id` (`amount_cents`). Antes de pagar pela API, consulte a bill: se o vencimento já avançou, ela já foi paga.
+- Anular (`PATCH /events/:id` com `{ "voided": true }`) o pagamento **mais recente** devolve o vencimento da bill, a parcela (`remaining`) e reativa uma bill encerrada; `meta.notes` confirma. Anular um pagamento mais antigo não mexe nas datas. Desanular não paga de novo.
 - Confirmar uma sugestão: `PATCH` com `{ "status": "active" }`. Dispensar ou encerrar: `{ "status": "ended" }`. Pausar: `paused`.
 
 ## Orçamento

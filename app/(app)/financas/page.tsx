@@ -1,13 +1,12 @@
 import { CircleAlert } from "lucide-react";
 import { FinancePage } from "@/components/finance/finance-page";
 import { MonthNav } from "@/components/finance/month-nav";
-import { PayButton } from "@/components/finance/pay-button";
+import { BillActions } from "@/components/one-tap/item-actions";
 import { SuggestedBills } from "@/components/finance/suggested-bills";
 import { TransactionList } from "@/components/finance/transaction-list";
 import { PageNotice } from "@/components/history/page-notice";
 import { EmptyNote } from "@/components/ui/attention-mark";
 import { RowLink } from "@/components/ui/more-link";
-import { centsToReaisInput } from "@/lib/domain/finance/screen-pay";
 import { monthLabel } from "@/lib/domain/history";
 import { loadFinanceMonth } from "@/lib/services/finance-pages";
 import { budgetRatio } from "@/lib/ui/finance";
@@ -81,15 +80,7 @@ export default async function FinancePageRoute({ searchParams }: Props) {
                         {formatMoney(bill.amount_cents)}
                       </p>
                     </div>
-                    {bill.kind === "income" ? null : (
-                      <PayButton
-                        billId={bill.id}
-                        dueDate={bill.next_due_date}
-                        name={bill.name}
-                        variable={bill.amount_varies}
-                        expected={centsToReaisInput(bill.amount_cents)}
-                      />
-                    )}
+                    <BillActions bill={bill} name={bill.name} />
                   </li>
                 ))}
               </ul>

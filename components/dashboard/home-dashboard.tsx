@@ -4,6 +4,7 @@ import { AttentionMark, EmptyNote } from "@/components/ui/attention-mark";
 import { attentionPhrase } from "@/lib/domain/attention";
 import { DOMAINS, type Domain } from "@/lib/domain/types";
 import { SuggestedBills } from "@/components/finance/suggested-bills";
+import { ItemActions } from "@/components/one-tap/item-actions";
 import { monthLabel } from "@/lib/domain/history";
 import type { DashboardData, DashboardFinance } from "@/lib/services/dashboard";
 import { formatMoney } from "@/lib/ui/format";
@@ -135,6 +136,7 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
                         {attentionPhrase(item.attention, item.days_until_due, item.next_due_time ?? null)}
                         {priorityWord(item.priority) ? ` · ${priorityWord(item.priority)}` : ""}
                       </p>
+                      <ItemActions item={item} bill={ready?.finance?.bills[item.id] ?? null} />
                     </li>
                   ))}
                 </ul>

@@ -194,6 +194,8 @@ O caminho principal é o chat: quando uma tarefa implica custo (uma consulta, um
 - Categoria é um slug `^[a-z0-9_]{1,40}$`. A lista recomendada vem em `data.recommended_categories` no health.
 - Não há delete. Arquivar cão, pessoa, veículo ou área é `PATCH` com `{ "archived": true }`. Item encerrado vai para `cancelled` ou `completed`.
 - Evento lançado errado é anulado com `PATCH /api/agent/events/:id` e `{ "voided": true }`. Ele sai do histórico e dos resumos, mas continua no banco. `{ "voided": false }` desfaz.
+- Um evento anulado libera a sua `external_key`: a mesma chamada depois grava um registro novo (o anulado fica com a chave renomeada para `<chave>~voided~<id>`).
+- O dono registra pela tela só com botões de um toque, com chaves `ui:pay:<bill>:<vencimento>`, `ui:done:<item>:<vencimento>` e `ui:dose:<item>:<horário>`. "+1 dia" e "Ignorar" mudam só o `due_date` do item (Ignorar pula para o próximo ciclo, sem evento). Desfazer, em até 5 s, anula o evento ou devolve a data. Ao ver um evento `ui:*`, trate como registrado pelo dono; não registre de novo.
 - `weight_kg` só vale para cão e `odometer_km` só para carro. Em outro domínio, a API responde `validation_error`.
 - Em cada criação, mande uma `external_key` estável. Repetir a chamada deve ser seguro.
 - Campo desconhecido no JSON responde `400` com `validation_error`. Leia `error.details`.

@@ -4,8 +4,12 @@ import { attentionPhrase } from "@/lib/domain/attention";
 import type { AttentionItem } from "@/lib/domain/types";
 import { markerClass } from "@/lib/ui/attention";
 import { EmptyNote } from "@/components/ui/attention-mark";
+import { ItemActions } from "@/components/one-tap/item-actions";
 
-/** A card in a list page (dogs, cars, family, areas). The whole card is the link. */
+/**
+ * A card in a list page (dogs, cars, family, areas). The header is the link; the
+ * next item sits below it with its one-tap buttons (a button cannot live inside a link).
+ */
 export function SubjectCard({
   href,
   title,
@@ -22,34 +26,37 @@ export function SubjectCard({
   compact?: boolean;
 }) {
   return (
-    <li>
+    <li className="h-full border-t border-line pt-4 dark:border-line-dark">
       <Link
         href={href}
-        className="group block h-full border-t border-line pt-4 transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent dark:border-line-dark"
+        className="group block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
       >
-        <div className="flex items-baseline justify-between gap-4">
-          <h2 className={`font-display leading-tight tracking-tight ${compact ? "text-2xl" : "text-3xl"} group-hover:text-accent-dark dark:group-hover:text-accent-light`}>
+        <div className="flex min-h-11 items-baseline justify-between gap-4">
+          <h2 className={`font-display leading-tight tracking-tight ${compact ? "text-2xl" : "text-3xl"} transition-colors duration-300 group-hover:text-accent-dark dark:group-hover:text-accent-light`}>
             {title}
           </h2>
           <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-ink-faint transition-transform duration-300 group-hover:translate-x-0.5" strokeWidth={1.75} />
         </div>
         {subtitle ? <p className="mt-1 text-sm text-ink-muted">{subtitle}</p> : null}
-        {next ? (
-          <p className={`mt-4 border-l-2 pl-3 text-base ${markerClass(next.attention)}`}>
-            {next.title}
-            <span className="block text-sm text-ink-muted">{attentionPhrase(next.attention, next.days_until_due)}</span>
-          </p>
-        ) : (
-          <EmptyNote>Nada pendente</EmptyNote>
-        )}
-        {lines.length > 0 ? (
-          <ul className="mt-3 space-y-1 text-sm text-ink-muted">
-            {lines.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        ) : null}
       </Link>
+      {next ? (
+        <div className={`mt-4 border-l-2 pl-3 ${markerClass(next.attention)}`}>
+          <p className="text-base">
+            {next.title}
+            <span className="block text-sm text-ink-muted">{attentionPhrase(next.attention, next.days_until_due, next.next_due_time ?? null)}</span>
+          </p>
+          <ItemActions item={next} />
+        </div>
+      ) : (
+        <EmptyNote>Nada pendente</EmptyNote>
+      )}
+      {lines.length > 0 ? (
+        <ul className="mt-3 space-y-1 text-sm text-ink-muted">
+          {lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      ) : null}
     </li>
   );
 }

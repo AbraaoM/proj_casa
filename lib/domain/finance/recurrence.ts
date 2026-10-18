@@ -22,6 +22,20 @@ export function nextDueDate(rule: Recurrence, due: string): string {
   }
 }
 
+/** The due date before `due`: the inverse of nextDueDate, for undoing a payment. */
+export function previousDueDate(rule: Recurrence, due: string): string {
+  switch (rule.frequency) {
+    case "monthly":
+      return addMonths(due, -rule.interval, rule.day_of_month ?? undefined);
+    case "yearly":
+      return addMonths(due, -12 * rule.interval, rule.day_of_month ?? undefined);
+    case "weekly":
+      return addDays(due, -7 * rule.interval);
+    case "every_n_days":
+      return addDays(due, -rule.interval);
+  }
+}
+
 export type BillAfterPayment = {
   next_due_date: string;
   remaining: number | null;
@@ -39,6 +53,20 @@ export function advanceBill(
   const remaining = bill.remaining === null ? null : Math.max(0, bill.remaining - 1);
   const ended = remaining === 0 || (bill.end_date !== null && next > bill.end_date);
   return { next_due_date: next, remaining, status: ended ? "ended" : "active" };
+}
+
+/**
+ * Undoing the latest payment: the bill goes back to the due date that payment
+ * settled, gets its installment back, and an ended bill is active again.
+ */
+export function retreatBill(
+  bill: Recurrence & { next_due_date: string; remaining: number | null; status: BillStatus },
+): BillAfterPayment {
+  return {
+    next_due_date: previousDueDate(bill, bill.next_due_date),
+    remaining: bill.remaining === null ? null : bill.remaining + 1,
+    status: bill.status === "ended" ? "active" : bill.status,
+  };
 }
 
 /** Dates of N monthly installments, starting on the purchase date and keeping its day. */

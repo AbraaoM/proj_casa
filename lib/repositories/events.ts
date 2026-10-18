@@ -74,8 +74,31 @@ export async function getEvent(sql: Sql, id: string): Promise<CareEvent | null> 
   return rows[0] ? mapEvent(rows[0]) : null;
 }
 
+/**
+ * The live event that owns an idempotency key. A voided event gives its key up
+ * (renamed to "<key>~voided~<id>", kept for history), so repeating the same call
+ * after an undo records something new instead of replaying what was undone.
+ */
 export async function findEventByExternalKey(sql: Sql, externalKey: string): Promise<CareEvent | null> {
   const rows = await sql.query(`${EVENT_SELECT} WHERE e.external_key = $1`, [externalKey]);
+  const event = rows[0] ? mapEvent(rows[0]) : null;
+  if (event && event.voided_at !== null) {
+    await sql.query(`UPDATE care_events SET external_key = $2 WHERE id = $1::uuid AND external_key = $3`, [
+      event.id,
+      `${externalKey}~voided~${event.id}`,
+      externalKey,
+    ]);
+    return null;
+  }
+  return event;
+}
+
+/** The item's newest live event other than `exceptId`. */
+export async function latestLiveItemEvent(sql: Sql, itemId: string, exceptId: string): Promise<CareEvent | null> {
+  const rows = await sql.query(
+    `${EVENT_SELECT} WHERE e.care_item_id = $1::uuid AND e.voided_at IS NULL AND e.id <> $2::uuid ${ORDER} LIMIT 1`,
+    [itemId, exceptId],
+  );
   return rows[0] ? mapEvent(rows[0]) : null;
 }
 
