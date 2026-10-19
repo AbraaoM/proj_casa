@@ -118,7 +118,7 @@ describe.skipIf(!url)("identity and attribution", () => {
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
       }),
     );
-    return (await response.json()) as { result: { isError: boolean; structuredContent: { ok: boolean; data: Record<string, any>; error?: { message: string } } } };
+    return (await response.json()) as { result: { isError: boolean; structuredContent: { ok: boolean; data: Record<string, unknown> & Loose; error?: { message: string } } } };
   }
 
   test("MCP: marcar_feito asks the cost, registrar_custo records it once, as the same person", async () => {
