@@ -10,6 +10,10 @@ import { createSql, type Sql } from "@/lib/db/client";
 import { applyMigrations } from "@/lib/db/migrate";
 import { newAgentKey } from "@/lib/agent/keys";
 
+// Tool results are read field by field in the assertions below.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Loose = Record<string, any>;
+
 const url = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!url)("identity and attribution", () => {
@@ -118,7 +122,7 @@ describe.skipIf(!url)("identity and attribution", () => {
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
       }),
     );
-    return (await response.json()) as { result: { isError: boolean; structuredContent: { ok: boolean; data: Record<string, unknown> & Loose; error?: { message: string } } } };
+    return (await response.json()) as { result: { isError: boolean; structuredContent: { ok: boolean; data: Loose; error?: { message: string } } } };
   }
 
   test("MCP: marcar_feito asks the cost, registrar_custo records it once, as the same person", async () => {
