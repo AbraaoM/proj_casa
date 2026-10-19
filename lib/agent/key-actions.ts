@@ -1,10 +1,10 @@
 "use server";
 
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { newAgentKey, parseAgentLabel, type KeyActionState } from "@/lib/agent/keys";
 import { currentUser } from "@/lib/auth/session";
+import { requestOrigin } from "@/lib/http/origin";
 import { tryGetSql } from "@/lib/db/client";
 import { isMissingSchema } from "@/lib/db/errors";
 import { isUuid } from "@/lib/domain/dates";
@@ -72,9 +72,5 @@ export async function revokeAgentKeyAction(_state: KeyActionState, formData: For
 }
 
 async function agentEndpoint(): Promise<string> {
-  const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
-  const forwarded = headerList.get("x-forwarded-proto");
-  const proto = forwarded ?? (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-  return `${proto}://${host}`;
+  return requestOrigin();
 }

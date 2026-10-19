@@ -4,7 +4,7 @@ Painel da casa. A tela mostra o que pede atenção. Quem grava os dados é o seu
 
 O painel pede usuário e senha. Num banco novo não há conta: no app local, a tela de login cria a primeira (master); no deploy público, crie com `CASA_FIRST_USERNAME=... CASA_FIRST_PASSWORD=... npm run db:migrate`. Cada pessoa troca só a própria senha (pede a atual, 8 ou mais caracteres). Só a conta master cria contas e redefine a senha de outra pessoa, que escolhe uma nova no próximo acesso. Uma conta que ainda usa a senha inicial de instalações antigas é obrigada a trocá-la e não entra pelo deploy da Vercel antes disso. Não há recuperação de senha.
 
-O agente usa uma chave gerada em Agentes (cada chave é de uma pessoa e tem o nome que ela deu ao agente), ou a variável `AGENT_API_KEY`, que age como a primeira conta master. Ele não usa esse login. A API REST fica em `/api/agent/` e o MCP remoto em `/api/mcp` (guia: `docs/agente-conectar.md`).
+O agente usa uma chave gerada em Agentes (cada chave é de uma pessoa e tem o nome que ela deu ao agente), ou a variável `AGENT_API_KEY`, que age como a primeira conta master. Ele não usa esse login. A API REST fica em `/api/agent/` e o MCP remoto em `/api/mcp` (guia: `docs/agente-conectar.md`). O bot do Telegram, no privado e no grupo da família, é configurado pela conta master em `/agentes/bot` (guia: `docs/agente-telegram.md`).
 
 ## Telas
 
@@ -12,7 +12,7 @@ Só leitura. `/` mostra o que pede atenção. `/caes`, `/carros`, `/familia` e `
 
 `/financas?mes=AAAA-MM` mostra o mês: saldo de hoje, resultado, contas a pagar, orçamento e para onde foi o dinheiro. `/financas/lancamentos` lista os lançamentos com filtros (mês, tipo, conta, categoria, `origem=dog:<id>`); `/financas/contas` e `/financas/contas/:slug` mostram saldos e o saldo informado. `/financas/contas-a-pagar` lista as contas que se repetem por vencimento, com os últimos pagamentos; `/financas/orcamento` compara orçado e realizado por categoria e filhas, com os últimos 6 meses. A página do cartão mostra a fatura aberta e as próximas parcelas. As páginas de cão, carro e área levam a "Ver em Finanças".
 
-O painel só escreve por botões de um toque: **Paguei**, **Dose dada**, **Feito**, **+1 dia**, **Ignorar** (pula para o próximo ciclo) e Confirmar/Dispensar de conta sugerida. Não há formulário fora do login e da administração. Cada toque é idempotente e mostra **Desfazer** por 5 s; desfazer anula o registro, não apaga. O normal continua sendo o dono pedir ao agente no chat. Detalhes para o agente: `docs/agente-conectar.md`.
+O painel só escreve por botões de um toque: **Paguei**, **Dose dada**, **Feito**, **+1 dia**, **Ignorar** (pula para o próximo ciclo) e Confirmar/Dispensar de conta sugerida. Não há formulário fora do login, da administração e da configuração do bot (`/agentes/bot`, só a conta master, exceção aprovada pelo dono). Cada toque é idempotente e mostra **Desfazer** por 5 s; desfazer anula o registro, não apaga. O normal continua sendo o dono pedir ao agente no chat. Detalhes para o agente: `docs/agente-conectar.md`.
 
 ## Stack
 
@@ -24,6 +24,8 @@ Copie `.env.example` para `.env.local` e preencha:
 
 - `DATABASE_URL`: connection string pooled do Neon.
 - `AGENT_API_KEY`: segredo opcional. O caminho normal é gerar a chave em Agentes, no painel. A variável continua válida como alternativa.
+- `CASA_SECRET_KEY`: só para o bot do Telegram. 32 bytes aleatórios em base64; cifra o token do bot e a chave de IA salvos em `/agentes/bot`. Gere com `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+- `CRON_SECRET`: opcional, protege o resumo diário chamado pela Vercel Cron.
 
 Nunca commite `.env` nem `.env.local`.
 
