@@ -12,7 +12,13 @@
     "test:db": "vitest run tests/integration"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.133",
+    "@ai-sdk/google": "^3.0.135",
+    "@ai-sdk/groq": "^3.0.77",
+    "@ai-sdk/openai": "^3.0.130",
+    "@ai-sdk/openai-compatible": "^2.0.85",
     "@neondatabase/serverless": "^1.2.0",
+    "ai": "^6.0.309",
     "lucide-react": "^1.59.0",
     "next": "16.4.2",
     "react": "19.3.0",

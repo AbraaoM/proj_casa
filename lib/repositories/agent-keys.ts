@@ -68,6 +68,7 @@ export async function listAgentKeys(sql: Sql): Promise<StoredAgentKey[]> {
     `SELECT k.id::text AS id, k.label, k.key_prefix, u.username AS created_by, k.created_by::text AS created_by_id, k.created_at, k.revoked_at
      FROM agent_keys k
      LEFT JOIN users u ON u.id = k.created_by
+     WHERE k.kind = 'api'
      ORDER BY (k.revoked_at IS NULL) DESC, k.created_at DESC`,
   );
   return rows.map(mapKey);
@@ -78,7 +79,7 @@ export async function revokeAgentKey(sql: Sql, id: string, actor: { id: string; 
   const rows = await sql.query(
     `UPDATE agent_keys
      SET revoked_at = now()
-     WHERE id = $1::uuid AND revoked_at IS NULL AND ($3 = 'admin' OR created_by = $2::uuid)
+     WHERE id = $1::uuid AND revoked_at IS NULL AND kind = 'api' AND ($3 = 'admin' OR created_by = $2::uuid)
      RETURNING id`,
     [id, actor.id, actor.role],
   );
