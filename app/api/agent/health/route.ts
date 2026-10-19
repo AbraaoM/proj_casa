@@ -7,13 +7,15 @@ import { FINANCE_ENUMS } from "@/lib/domain/finance/types";
 import { getSchemaVersion, getSettings } from "@/lib/repositories/settings";
 
 export async function GET(request: Request) {
-  const denied = await authorize(request);
-  if (denied) return denied;
+  const auth = await authorize(request);
+  if (!auth.ok) return auth.response;
+  const caller = { user: auth.caller.username, agent_name: auth.caller.agentName, agent_key_id: auth.caller.keyId };
 
   const sql = tryGetSql();
   if (!sql) {
     return jsonOk({
       service: "casa",
+      caller,
       database: "unconfigured",
       schema_version: null,
       timezone: DEFAULT_TIMEZONE,
@@ -27,6 +29,7 @@ export async function GET(request: Request) {
     const [version, settings] = await Promise.all([getSchemaVersion(sql), getSettings(sql)]);
     return jsonOk({
       service: "casa",
+      caller,
       database: version ? "ok" : "schema_missing",
       schema_version: version,
       timezone: settings?.timezone ?? DEFAULT_TIMEZONE,
@@ -38,6 +41,7 @@ export async function GET(request: Request) {
     if (isMissingSchema(error)) {
       return jsonOk({
         service: "casa",
+      caller,
         database: "schema_missing",
         schema_version: null,
         timezone: DEFAULT_TIMEZONE,

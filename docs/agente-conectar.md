@@ -2,9 +2,28 @@
 
 O seu agente (qualquer assistente, com o nome que você der) grava e atualiza a Casa pela API em `/api/agent/`. O painel lê e tem só botões de um toque. O painel não usa a chave do agente.
 
-O painel tem um login separado (`admin` / `admin` na primeira conta). Esse login não autentica o agente. Deixe o app em `localhost` nesta etapa. Uma URL pública deixaria a casa exposta: a senha inicial é simples e qualquer conta pode trocar a senha das outras.
+O painel tem um login separado, com usuário e senha de cada pessoa. Esse login não autentica o agente: o agente usa uma chave.
+
+Há dois jeitos de ligar um agente, com a mesma chave:
+
+- **REST** (`/api/agent/...`): para um agente que roda na mesma máquina ou que chama HTTP direto. Seções 1 a 10.
+- **MCP** (`/api/mcp`): para um assistente que aceita conector MCP remoto, como o Claude no plano Free. Seção 11.
 
 A tabela completa de rotas está no `README.md`. Este arquivo cobre só a ligação.
+
+### Quem fez o quê
+
+Cada chave pertence a uma pessoa (a conta que a gerou) e tem o nome que ela deu ao agente. Tudo o que o agente grava (pendência, evento, dose, lançamento, conta) leva `created_by_user_id` e `agent_key_id`, e cada escrita (`POST`, `PATCH`, `PUT` e ferramenta MCP que grava) entra em `agent_activity` com o canal (`rest` ou `mcp`), a ação e o status. Um toque no painel fica no nome de quem está logado, sem chave. `GET /api/agent/health` mostra em `data.caller` quem a chave representa.
+
+`AGENT_API_KEY`, a variável antiga, continua valendo e age como a primeira conta master.
+
+### Antes de publicar
+
+O app pode ficar numa URL pública (é o que o Claude e o bot precisam) desde que:
+
+- nenhuma conta use a senha inicial antiga. A migration `007_identity` marca essa conta: no app local ela entra e é obrigada a trocar a senha; no deploy da Vercel ela nem entra até a senha ser trocada;
+- cada pessoa tenha a própria conta. Cada um troca só a própria senha; só a conta master cria contas e redefine a senha de outra pessoa, que escolhe uma nova no próximo acesso;
+- cada pessoa use a própria chave, revogável em **Agentes**.
 
 ## 1. Confirme o banco
 
@@ -14,11 +33,17 @@ O `.env.local` já precisa ter `DATABASE_URL`. O schema entra com:
 npm run db:migrate
 ```
 
-A versão esperada é `006_medication_doses`.
+A versão esperada é `007_identity`.
+
+Num banco novo não existe conta. No app local, a tela de login pede para criar a primeira conta (master). No deploy público isso não aparece, para ninguém tomar a casa: crie a conta pelo terminal, sem gravar a senha em arquivo:
+
+```bash
+CASA_FIRST_USERNAME=dono CASA_FIRST_PASSWORD='uma-senha-longa' npm run db:migrate
+```
 
 ## 2. Crie a chave
 
-Entre no painel (`admin` / `admin` na primeira conta) e abra **Agentes**. Dê o nome do seu agente e use **Gerar chave**. Copie o segredo na hora. Recarregar a página esconde a chave, porque o banco guarda só o hash.
+Entre no painel com a sua conta e abra **Agentes**. Dê o nome do seu agente e use **Gerar chave**. Copie o segredo na hora. Recarregar a página esconde a chave, porque o banco guarda só o hash.
 
 Entregue a chave ao agente fora do git. Uma chave revogada deixa de funcionar na hora. Gere outra se precisar.
 
@@ -40,7 +65,7 @@ Passe no chat do agente, fora do git:
 - a chave, uma única vez
 - este arquivo e o `README.md`
 
-Peça para ele guardar a chave só na sessão e começar pelo health check. Se o agente não roda nesta máquina, `localhost` não chega até ele. Não publique o app para contornar isso.
+Peça para ele guardar a chave só na sessão e começar pelo health check. Se o agente não roda nesta máquina, `localhost` não chega até ele: use a URL pública do deploy (veja "Antes de publicar").
 
 ## 5. Como o agente autentica
 
@@ -79,7 +104,8 @@ Ligado de verdade, a resposta é `200` e o corpo tem:
 
 - `data.service` = `casa`
 - `data.database` = `ok`
-- `data.schema_version` = `006_medication_doses`
+- `data.schema_version` = `007_identity`
+- `data.caller.user` = a conta dona da chave e `data.caller.agent_name` = o nome do agente
 - `data.timezone` = `America/Sao_Paulo`, salvo se a casa tiver outro fuso
 
 `database: "unconfigured"` significa que o processo não viu `DATABASE_URL`. `database: "schema_missing"` significa que a migration não rodou.
@@ -202,3 +228,51 @@ O caminho principal é o chat: quando uma tarefa implica custo (uma consulta, um
 - Dinheiro é sempre em centavos inteiros. Custo de um setor vai no evento (`amount_cents`); o lançamento em Finanças nasce dele. Não crie um segundo lançamento para o mesmo gasto.
 - Prefira confirmar contas e gastos no chat. Sugestão no painel é exceção.
 - O painel chama os serviços direto. O agente não precisa da chave para a tela existir, e a tela não grava no lugar dele.
+
+## 11. MCP remoto (`/api/mcp`)
+
+A Casa expõe um servidor MCP em `POST /api/mcp`, com transporte Streamable HTTP sem sessão: cada pedido é uma mensagem JSON-RPC e a resposta vem em JSON ([especificação](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports)). Não há fluxo SSE (`GET` responde `405`). A autenticação é a mesma chave, no header `Authorization: Bearer <chave>`.
+
+Ferramentas (as mesmas regras das rotas REST):
+
+| Ferramenta | Faz | Grava? |
+| --- | --- | --- |
+| `atencao_hoje` | pendências atrasadas, de hoje e dos próximos dias | não |
+| `listar_cadastros` | ids e nomes de cães, família, carros e áreas | não |
+| `listar_itens` | pendências com filtro | não |
+| `historico` | histórico de um cão, carro, pessoa ou área | não |
+| `adicionar_item` | nova pendência ou lembrete | sim |
+| `marcar_feito` | conclui e reagenda; não aceita valor | sim |
+| `registrar_dose` | dose de remédio por hora | sim |
+| `registrar_evento` | algo feito sem pendência; não aceita valor | sim |
+| `registrar_custo` | o custo que a pessoa disse, num evento recém-concluído | sim |
+| `resumo_financeiro` | resumo do mês | não |
+
+**Regra de finanças.** Nenhuma ferramenta cria lançamento por iniciativa do agente. Quando `marcar_feito` ou `registrar_evento` conclui algo que costuma custar dinheiro (consulta, vacina, troca de óleo, conserto, dentista, remédio…), a resposta traz `ask_cost: true`. O agente pergunta quanto custou e só então chama `registrar_custo` com o valor dito. O servidor recusa `registrar_custo` se o evento tiver mais de 72 h, já tiver custo, estiver anulado ou tiver sido gravado por outra pessoa.
+
+Teste rápido:
+
+```bash
+curl -sS "$CASA_URL/api/mcp" \
+  -H "Authorization: Bearer $AGENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+### Agente local com MCP
+
+Um agente que roda nesta máquina e aceita servidor MCP por HTTP usa `http://localhost:3000/api/mcp` com o mesmo header. Para quem já usa a API REST, nada muda: as duas formas convivem.
+
+### Claude (plano Free) como conector personalizado
+
+O Claude conecta da nuvem da Anthropic, então a Casa precisa estar numa URL HTTPS pública (o deploy da Vercel), já com "Antes de publicar" cumprido. O plano Free aceita 1 conector personalizado ([ajuda do Claude](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)).
+
+1. Cada pessoa entra na Casa com a própria conta, abre **Agentes** e gera uma chave (o nome pode ser "Claude").
+2. No Claude (web ou app): **Customize → Connectors → + Add → Add custom connector**.
+3. Nome: `Casa`. URL: `https://<seu-deploy>/api/mcp`. **Continue**.
+4. Em **Authentication**, escolha **No sign in**.
+5. Em **Request headers**, adicione `Authorization` com o valor `Bearer <a chave>`.
+6. **Add**. Na conversa, ligue o conector em **+ → Connectors**.
+
+O Claude não manda lembrete sozinho e o nome dele continua sendo Claude. Para revogar, revogue a chave em **Agentes** ou remova o conector no Claude.

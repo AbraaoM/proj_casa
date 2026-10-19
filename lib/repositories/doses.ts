@@ -1,3 +1,4 @@
+import { attribution } from "@/lib/agent/actor";
 import type { Sql } from "@/lib/db/client";
 import { instant, mapEvent } from "@/lib/db/rows";
 import type { DoseSchedule } from "@/lib/domain/doses";
@@ -20,15 +21,16 @@ export async function insertDose(sql: Sql, write: DoseWrite): Promise<CareEvent>
     `
       INSERT INTO care_events (
         care_item_id, domain, dog_id, family_member_id, vehicle_id, area_id,
-        category, title, done_on, done_at, notes, created_by_agent, external_key
+        category, title, done_on, done_at, notes, created_by_agent, external_key,
+        created_by_user_id, agent_key_id
       )
       SELECT i.id, i.domain, i.dog_id, i.family_member_id, i.vehicle_id, i.area_id,
-             i.category, i.title, $2::date, $3::timestamptz, $4, true, $5
+             i.category, i.title, $2::date, $3::timestamptz, $4, true, $5, $6::uuid, $7::uuid
       FROM care_items i
       WHERE i.id = $1::uuid
       RETURNING id
     `,
-    [write.item_id, write.done_on, write.done_at, write.notes, write.external_key],
+    [write.item_id, write.done_on, write.done_at, write.notes, write.external_key, attribution().userId, attribution().keyId],
   );
   const event = rows[0] ? await getEvent(sql, rows[0].id) : null;
   if (!event) throw new Error("Inserted dose could not be read back.");

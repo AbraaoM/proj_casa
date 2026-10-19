@@ -21,6 +21,16 @@ export function LoginForm({ action }: { action: Action }) {
   );
 }
 
+export function FirstAccountForm({ action }: { action: Action }) {
+  return (
+    <AuthForm action={action} submitLabel="Criar a primeira conta" pendingLabel="Criando…">
+      <Field label="Usuário" name="username" autoComplete="username" />
+      <Field label="Senha (8 ou mais caracteres)" name="password" type="password" autoComplete="new-password" />
+      <Field label="Confirmar senha" name="confirm" type="password" autoComplete="new-password" />
+    </AuthForm>
+  );
+}
+
 export function OwnPasswordForm({ action }: { action: Action }) {
   return (
     <AuthForm action={action} submitLabel="Trocar senha" pendingLabel="Salvando…" resetOnSuccess>

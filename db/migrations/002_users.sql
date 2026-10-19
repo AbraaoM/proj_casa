@@ -22,10 +22,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id);
 
--- Initial master account. There is no password recovery.
-INSERT INTO users (username, password_hash, role)
-VALUES ('admin', crypt('admin', gen_salt('bf')), 'admin')
-ON CONFLICT (username) DO NOTHING;
+-- No account is seeded here. The first account is created on /login (first run)
+-- or by npm run db:migrate with CASA_FIRST_USERNAME and CASA_FIRST_PASSWORD set.
 
 INSERT INTO schema_migrations (version)
 VALUES ('002_users')

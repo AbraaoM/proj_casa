@@ -71,6 +71,9 @@ export function CreateKeyForm({ action }: { action: Action }) {
               Base {state.endpoint}. Header Authorization: Bearer e a chave.
             </p>
           ) : null}
+          {state.mcpEndpoint ? (
+            <p className="break-all text-sm text-ink-muted">MCP {state.mcpEndpoint}, com o mesmo header.</p>
+          ) : null}
         </div>
       ) : null}
 
