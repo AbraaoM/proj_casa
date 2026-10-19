@@ -1,3 +1,4 @@
+import { attribution } from "@/lib/agent/actor";
 import type { Sql } from "@/lib/db/client";
 import { mapAccount, mapBalanceCheck, mapBill, mapCategory, mapTransaction } from "@/lib/db/finance-rows";
 import { integerOrNull, text } from "@/lib/db/rows";
@@ -333,15 +334,17 @@ export async function insertTransactions(sql: Sql, writes: TransactionWrite[]): 
     care_event_id: "::uuid", bill_id: "::uuid", installment_group: "::uuid",
   };
   const params: unknown[] = [];
+  const who = attribution();
+  params.push(who.userId, who.keyId);
   const values = writes.map((write) => {
     const placeholders = columns.map((column) => {
       params.push(write[column]);
       return `$${params.length}${casts[column] ?? ""}`;
     });
-    return `(${placeholders.join(", ")}, true)`;
+    return `(${placeholders.join(", ")}, true, $1::uuid, $2::uuid)`;
   });
   const rows = await sql.query<{ id: string }>(
-    `INSERT INTO fin_transactions (${columns.join(", ")}, created_by_agent) VALUES ${values.join(", ")} RETURNING id`,
+    `INSERT INTO fin_transactions (${columns.join(", ")}, created_by_agent, created_by_user_id, agent_key_id) VALUES ${values.join(", ")} RETURNING id`,
     params,
   );
   const ids = rows.map((row) => text(row.id));
@@ -465,12 +468,13 @@ export async function findBillByItem(sql: Sql, itemId: string): Promise<FinBill 
 export async function insertBill(sql: Sql, write: BillWrite): Promise<FinBill> {
   const rows = await sql.query<{ id: string }>(
     `INSERT INTO fin_bills (slug, name, kind, amount_cents, amount_varies, category_id, account_id, frequency, interval,
-       day_of_month, next_due_date, end_date, remaining, autopay, status, care_item_id, notes, external_key, created_by_agent)
-     VALUES ($1, $2, $3, $4, $5, $6::uuid, $7::uuid, $8, $9, $10, $11::date, $12::date, $13, $14, $15, $16::uuid, $17, $18, true)
+       day_of_month, next_due_date, end_date, remaining, autopay, status, care_item_id, notes, external_key, created_by_agent,
+       created_by_user_id, agent_key_id)
+     VALUES ($1, $2, $3, $4, $5, $6::uuid, $7::uuid, $8, $9, $10, $11::date, $12::date, $13, $14, $15, $16::uuid, $17, $18, true, $19::uuid, $20::uuid)
      RETURNING id`,
     [write.slug, write.name, write.kind, write.amount_cents, write.amount_varies, write.category_id, write.account_id,
       write.frequency, write.interval, write.day_of_month, write.next_due_date, write.end_date, write.remaining,
-      write.autopay, write.status, write.care_item_id, write.notes, write.external_key],
+      write.autopay, write.status, write.care_item_id, write.notes, write.external_key, attribution().userId, attribution().keyId],
   );
   return (await getBillByRef(sql, text(rows[0]?.id))) as FinBill;
 }

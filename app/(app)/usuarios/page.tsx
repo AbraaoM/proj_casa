@@ -1,6 +1,7 @@
 import { changeOwnPasswordAction, createUserAction, setPasswordAction } from "@/lib/auth/actions";
 import { currentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
+import { canManageAccounts } from "@/lib/auth/policy";
 import { getSql } from "@/lib/db/client";
 import { listUsers } from "@/lib/repositories/accounts";
 import { CreateUserForm, OwnPasswordForm, SetPasswordForm } from "@/components/auth/auth-forms";
@@ -12,12 +13,13 @@ export default async function UsersPage() {
   if (!actor) redirect("/login");
   const users = await listUsers(getSql());
   const others = users.filter((user) => user.id !== actor.id);
+  const master = canManageAccounts(actor);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-8 md:max-w-5xl md:px-10 md:py-12">
       <h1 className="font-display text-3xl leading-tight tracking-tight">Usuários</h1>
       <p className="mt-3 max-w-xl text-sm text-ink-muted">
-        Qualquer conta pode criar usuários e definir a senha de outra conta. Não há recuperação de senha.
+        Cada pessoa troca só a própria senha. A conta master cria contas e redefine a senha de outra pessoa, que escolhe uma nova no próximo acesso. Não há recuperação de senha.
       </p>
 
       <section className="mt-12 max-w-md border-t border-line pt-4 dark:border-line-dark">
@@ -25,10 +27,12 @@ export default async function UsersPage() {
         <OwnPasswordForm action={changeOwnPasswordAction} />
       </section>
 
-      <section className="mt-12 max-w-md border-t border-line pt-4 dark:border-line-dark">
-        <h2 className="text-lg">Novo usuário</h2>
-        <CreateUserForm action={createUserAction} />
-      </section>
+      {master ? (
+        <section className="mt-12 max-w-md border-t border-line pt-4 dark:border-line-dark">
+          <h2 className="text-lg">Novo usuário</h2>
+          <CreateUserForm action={createUserAction} />
+        </section>
+      ) : null}
 
       <section className="mt-12 border-t border-line pt-4 dark:border-line-dark">
         <h2 className="text-lg">Contas</h2>
@@ -42,7 +46,7 @@ export default async function UsersPage() {
               </p>
               {user.id === actor.id ? (
                 <p className="mt-2 text-sm text-ink-muted">A sua senha muda no formulário acima.</p>
-              ) : (
+              ) : !master ? null : (
                 <div className="max-w-md">
                   <SetPasswordForm action={setPasswordAction} userId={user.id} />
                 </div>

@@ -91,13 +91,21 @@ export function errorBody(error: unknown): { code: string; message: string; deta
 
 export async function run(request: Request, action: () => Promise<Response>): Promise<Response> {
   const { authorize } = await import("@/lib/agent/auth");
-  const denied = await authorize(request);
-  if (denied) return denied;
-  try {
-    return await action();
-  } catch (error) {
-    return toErrorResponse(error);
+  const auth = await authorize(request);
+  if (!auth.ok) return auth.response;
+  const { withCaller } = await import("@/lib/agent/actor");
+  const response = await withCaller(auth.caller, "rest", async () => {
+    try {
+      return await action();
+    } catch (error) {
+      return toErrorResponse(error);
+    }
+  });
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    const { recordActivity } = await import("@/lib/agent/activity");
+    await recordActivity(auth.caller, "rest", `${request.method} ${new URL(request.url).pathname}`, response.status);
   }
+  return response;
 }
 
 /** A finance account, category or bill is addressed by uuid or by slug. */

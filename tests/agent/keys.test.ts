@@ -129,26 +129,38 @@ describe("authorize", () => {
     if (authorization !== undefined) headers.set("authorization", authorization);
     return new Request("http://localhost/api/agent/health", { headers });
   }
+  const owner = { userId: "u-owner", username: "dono", keyId: null, agentName: null };
+  const denied = (result: Awaited<ReturnType<typeof authorize>>) => (result.ok ? null : result.response);
 
-  test("accepts the environment secret without asking the database", async () => {
+  test("accepts the environment secret without asking the database, acting as the first master account", async () => {
     vi.stubEnv("AGENT_API_KEY", "env-secret");
     const lookup = vi.fn();
 
-    const response = await authorize(request("Bearer env-secret"), lookup);
+    const result = await authorize(request("Bearer env-secret"), lookup, async () => owner);
 
-    expect(response).toBeNull();
+    expect(result).toEqual({ ok: true, caller: owner });
     expect(lookup).not.toHaveBeenCalled();
   });
 
-  test("accepts a bearer token whose hash matches an active key", async () => {
+  test("the environment secret still works when the owner lookup fails", async () => {
+    vi.stubEnv("AGENT_API_KEY", "env-secret");
+    const result = await authorize(request("Bearer env-secret"), vi.fn(), async () => {
+      throw new Error("db down");
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.caller.userId).toBeNull();
+  });
+
+  test("accepts a bearer token whose hash matches an active key and says who it belongs to", async () => {
     vi.stubEnv("AGENT_API_KEY", "");
     const token = "casa_live";
-    const response = await authorize(request(`Bearer ${token}`), async (keyHash) => {
+    const caller = { userId: "u1", username: "pessoa", keyId: "k1", agentName: "Agente da casa" };
+    const result = await authorize(request(`Bearer ${token}`), async (keyHash) => {
       expect(keyHash).toBe(hashAgentKey(token));
-      return { available: true, hasActiveKey: true, hashMatches: true };
+      return { available: true, hasActiveKey: true, hashMatches: true, caller };
     });
 
-    expect(response).toBeNull();
+    expect(result).toEqual({ ok: true, caller });
   });
 
   test("returns 401 when the bearer token matches nothing", async () => {
@@ -158,7 +170,7 @@ describe("authorize", () => {
       hasActiveKey: true,
       hashMatches: false,
     }));
-    const response = await authorize(request("Bearer wrong"), lookup);
+    const response = denied(await authorize(request("Bearer wrong"), lookup));
 
     expect(lookup).toHaveBeenCalledOnce();
     expect(response?.status).toBe(401);
@@ -175,7 +187,7 @@ describe("authorize", () => {
       hasActiveKey: false,
       hashMatches: false,
     }));
-    const response = await authorize(request(), lookup);
+    const response = denied(await authorize(request(), lookup));
 
     expect(lookup).toHaveBeenCalledOnce();
     expect(response?.status).toBe(503);
@@ -191,7 +203,7 @@ describe("authorize", () => {
     const lookup = vi.fn(async () => {
       throw error;
     });
-    const response = await authorize(request("Bearer casa_live"), lookup);
+    const response = denied(await authorize(request("Bearer casa_live"), lookup));
 
     expect(lookup).toHaveBeenCalledOnce();
     expect(response?.status).toBe(503);
@@ -203,9 +215,11 @@ describe("authorize", () => {
   test("returns 503 when the key lookup fails for another reason", async () => {
     vi.stubEnv("AGENT_API_KEY", "");
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const response = await authorize(request("Bearer casa_live"), async () => {
-      throw new Error("connection reset");
-    });
+    const response = denied(
+      await authorize(request("Bearer casa_live"), async () => {
+        throw new Error("connection reset");
+      }),
+    );
 
     expect(response?.status).toBe(503);
     await expect(response?.json()).resolves.toMatchObject({

@@ -41,7 +41,8 @@ export async function createAgentKeyAction(_state: KeyActionState, formData: For
     ok: true,
     message: "Chave gerada. Copie agora. Ela não aparece de novo.",
     token: key.token,
-    endpoint: await agentEndpoint(),
+    endpoint: `${await agentEndpoint()}/api/agent`,
+    mcpEndpoint: `${await agentEndpoint()}/api/mcp`,
   };
 }
 
@@ -56,8 +57,8 @@ export async function revokeAgentKeyAction(_state: KeyActionState, formData: For
   if (!sql) return { ok: false, message: "O banco não está ligado." };
 
   try {
-    const revoked = await revokeAgentKey(sql, id);
-    if (!revoked) return { ok: false, message: "Essa chave já foi revogada." };
+    const revoked = await revokeAgentKey(sql, id, actor);
+    if (!revoked) return { ok: false, message: "Essa chave já foi revogada ou é de outra pessoa." };
   } catch (error) {
     if (isMissingSchema(error)) {
       return { ok: false, message: "As tabelas ainda não existem. Rode npm run db:migrate." };
@@ -75,5 +76,5 @@ async function agentEndpoint(): Promise<string> {
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
   const forwarded = headerList.get("x-forwarded-proto");
   const proto = forwarded ?? (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
-  return `${proto}://${host}/api/agent`;
+  return `${proto}://${host}`;
 }

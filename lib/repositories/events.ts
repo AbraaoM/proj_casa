@@ -1,3 +1,4 @@
+import { attribution } from "@/lib/agent/actor";
 import type { Sql } from "@/lib/db/client";
 import { mapEvent } from "@/lib/db/rows";
 import type { EventListQuery, EventPatch } from "@/lib/domain/events";
@@ -116,12 +117,14 @@ export async function insertEvent(sql: Sql, write: EventWrite): Promise<CareEven
       INSERT INTO care_events (
         care_item_id, domain, dog_id, family_member_id, vehicle_id, area_id,
         category, title, done_on, notes, provider,
-        weight_kg, odometer_km, amount_cents, created_by_agent, external_key
+        weight_kg, odometer_km, amount_cents, created_by_agent, external_key,
+        created_by_user_id, agent_key_id
       )
       VALUES (
         $1::uuid, $2, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
         $7, $8, $9::date, $10, $11,
-        $12, $13, $14, true, $15
+        $12, $13, $14, true, $15,
+        $16::uuid, $17::uuid
       )
       RETURNING id
     `,
@@ -141,6 +144,8 @@ export async function insertEvent(sql: Sql, write: EventWrite): Promise<CareEven
       write.odometer_km,
       write.amount_cents,
       write.external_key,
+      attribution().userId,
+      attribution().keyId,
     ],
   );
   const event = rows[0] ? await getEvent(sql, rows[0].id) : null;

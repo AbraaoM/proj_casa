@@ -10,6 +10,8 @@ export type ProxyDecision = "pass" | "login";
 
 export function proxyDecision(pathname: string, hasSessionCookie: boolean): ProxyDecision {
   if (pathname.startsWith("/api/agent")) return "pass";
+  // The MCP endpoint checks its own bearer key.
+  if (pathname === "/api/mcp") return "pass";
   if (PUBLIC_PATHS.has(pathname)) return "pass";
   return hasSessionCookie ? "pass" : "login";
 }

@@ -2,9 +2,9 @@
 
 Painel da casa. A tela mostra o que pede atenção. Quem grava os dados é o seu agente, pela API em `/api/agent/`.
 
-O painel pede usuário e senha. A conta inicial é `admin` / `admin`. Qualquer usuário logado cria outras contas e define a senha delas. A própria senha pede a senha atual. Não há recuperação de senha. O agente usa uma chave gerada em Agentes, ou a variável `AGENT_API_KEY`. Ele não usa esse login.
+O painel pede usuário e senha. Num banco novo não há conta: no app local, a tela de login cria a primeira (master); no deploy público, crie com `CASA_FIRST_USERNAME=... CASA_FIRST_PASSWORD=... npm run db:migrate`. Cada pessoa troca só a própria senha (pede a atual, 8 ou mais caracteres). Só a conta master cria contas e redefine a senha de outra pessoa, que escolhe uma nova no próximo acesso. Uma conta que ainda usa a senha inicial de instalações antigas é obrigada a trocá-la e não entra pelo deploy da Vercel antes disso. Não há recuperação de senha.
 
-Não publique este app numa URL aberta. A senha inicial é simples e qualquer conta pode trocar a senha das outras.
+O agente usa uma chave gerada em Agentes (cada chave é de uma pessoa e tem o nome que ela deu ao agente), ou a variável `AGENT_API_KEY`, que age como a primeira conta master. Ele não usa esse login. A API REST fica em `/api/agent/` e o MCP remoto em `/api/mcp` (guia: `docs/agente-conectar.md`).
 
 ## Telas
 
@@ -74,7 +74,8 @@ Datas são dias de calendário (`YYYY-MM-DD`) no fuso da casa (`America/Sao_Paul
 
 | Método | Rota | Uso |
 | --- | --- | --- |
-| GET | `/api/agent/health` | chave, banco e versão do schema |
+| GET | `/api/agent/health` | chave, banco, versão do schema e quem a chave representa (`caller`) |
+| POST | `/api/mcp` | MCP remoto (JSON-RPC) com 10 ferramentas; mesma chave. Guia: `docs/agente-conectar.md` |
 | GET | `/api/agent/attention?domain=&within_days=14` | pendências ordenadas |
 | GET | `/api/agent/items` | lista (`domain`, `status`, `dog_id`, `family_member_id`, `vehicle_id`, `limit`) |
 | POST | `/api/agent/items` | cria um item |

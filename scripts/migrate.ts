@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createSql } from "../lib/db/client";
 import { applyMigrations } from "../lib/db/migrate";
+import { parseNewPassword, parseUsername } from "../lib/auth/validate";
+import { insertFirstUser } from "../lib/repositories/accounts";
 
 loadEnvFile(".env.local");
 loadEnvFile(".env");
@@ -15,6 +17,7 @@ async function main() {
   const sql = createSql(databaseUrl);
   const applied = await applyMigrations(sql, { log: (line) => console.log(line) });
   if (applied.length === 0) console.log("Schema already up to date.");
+  await seedFirstAccount(sql);
   if (process.env.DATABASE_DRIVER === "pg") process.exit(0);
 }
 
@@ -23,6 +26,21 @@ main().catch((error: unknown) => {
   console.error(message.replace(/postgres(?:ql)?:\/\/\S+/gi, "postgresql://***"));
   process.exit(1);
 });
+
+/** Optional: CASA_FIRST_USERNAME and CASA_FIRST_PASSWORD create the first master account if there is none. */
+async function seedFirstAccount(sql: ReturnType<typeof createSql>) {
+  const rawUser = process.env.CASA_FIRST_USERNAME;
+  const rawPassword = process.env.CASA_FIRST_PASSWORD;
+  if (!rawUser && !rawPassword) return;
+  const username = parseUsername(rawUser);
+  const password = parseNewPassword(rawPassword);
+  if (!username.ok || !password.ok) {
+    console.error(`First account not created: ${!username.ok ? username.message : (password as { message: string }).message}`);
+    process.exit(1);
+  }
+  const user = await insertFirstUser(sql, username.value, password.value);
+  console.log(user ? `First account ${user.username} created (master).` : "An account already exists; nothing seeded.");
+}
 
 function loadEnvFile(path: string) {
   if (!existsSync(path)) return;

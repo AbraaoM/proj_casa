@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { withCaller } from "@/lib/agent/actor";
 import { currentUser } from "@/lib/auth/session";
 import { tryGetSql } from "@/lib/db/client";
 import { isUuid, todayInTimeZone } from "@/lib/domain/dates";
@@ -38,7 +39,8 @@ function successMessage(kind: TapKind, result: Extract<TapResult, { ok: true }>)
 
 /** Every one-tap button posts here: kind, the item or bill id, and what the screen showed. */
 export async function tapAction(_previous: TapState, formData: FormData): Promise<TapState> {
-  if (!(await currentUser())) return fail("Entre de novo para registrar.");
+  const user = await currentUser();
+  if (!user) return fail("Entre de novo para registrar.");
   const kind = formData.get("kind");
   const id = formData.get("id");
   const shownRaw = formData.get("shown");
@@ -56,10 +58,14 @@ export async function tapAction(_previous: TapState, formData: FormData): Promis
   try {
     const settings = await readSettings(sql);
     const today = todayInTimeZone(settings.timezone);
-    if (tapKind === "pay") result = await tapPay(sql, id, shown as string, today);
-    else if (tapKind === "done") result = await tapDone(sql, id, shown, today);
-    else if (tapKind === "dose") result = await tapDose(sql, id, shown, clockFor(settings));
-    else result = await tapShift(sql, id, tapKind, shown as string);
+    // A tap is recorded as the person signed in, with no agent key.
+    const panel = { userId: user.id, username: user.username, keyId: null, agentName: null };
+    result = await withCaller(panel, "panel", async () => {
+      if (tapKind === "pay") return tapPay(sql, id, shown as string, today);
+      if (tapKind === "done") return tapDone(sql, id, shown, today);
+      if (tapKind === "dose") return tapDose(sql, id, shown, clockFor(settings));
+      return tapShift(sql, id, tapKind, shown as string);
+    });
   } catch (error) {
     console.error(error);
     return fail("Não consegui registrar. Tente de novo.");

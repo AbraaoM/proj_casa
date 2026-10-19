@@ -21,6 +21,7 @@ export type KeyActionState = {
   message: string;
   token?: string;
   endpoint?: string;
+  mcpEndpoint?: string;
 };
 
 export const idleKeyAction: KeyActionState = { ok: false, message: "" };

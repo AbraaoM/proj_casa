@@ -1,5 +1,6 @@
 import { CreateKeyForm, RevokeKeyForm } from "@/components/agents/agent-key-forms";
 import { createAgentKeyAction, revokeAgentKeyAction } from "@/lib/agent/key-actions";
+import { currentUser } from "@/lib/auth/session";
 import { loadAgentKeys } from "@/lib/services/agent-keys";
 
 export const dynamic = "force-dynamic";
@@ -11,14 +12,15 @@ const STATUS_COPY = {
 } as const;
 
 export default async function AgentsPage() {
-  const list = await loadAgentKeys();
+  const [list, actor] = await Promise.all([loadAgentKeys(), currentUser()]);
+  const canRevoke = (ownerId: string | null) => actor?.role === "admin" || (actor !== null && ownerId === actor.id);
   const notice = list.status === "ready" ? null : STATUS_COPY[list.status];
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-8 md:max-w-5xl md:px-10 md:py-12">
       <h1 className="font-display text-3xl leading-tight tracking-tight">Agentes</h1>
       <p className="mt-3 max-w-xl text-sm text-ink-muted">
-        Gere uma chave e entregue o segredo ao seu agente. Ela aparece uma vez. Recarregar esta página esconde a chave.
+        Gere uma chave e entregue o segredo ao seu agente. A chave é sua: o que o agente fizer fica registrado no seu nome e no nome que você der a ele. Ela aparece uma vez; recarregar esta página esconde a chave.
       </p>
       {notice ? <p className="mt-4 max-w-xl text-sm">{notice}</p> : null}
 
@@ -46,7 +48,7 @@ export default async function AgentsPage() {
                   {" · "}
                   {formatWhen(key.createdAt)}
                 </p>
-                {key.revokedAt ? null : <RevokeKeyForm action={revokeAgentKeyAction} id={key.id} />}
+                {key.revokedAt || !canRevoke(key.createdById) ? null : <RevokeKeyForm action={revokeAgentKeyAction} id={key.id} />}
               </li>
             ))}
           </ul>

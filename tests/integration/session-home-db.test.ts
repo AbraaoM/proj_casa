@@ -32,7 +32,8 @@ describe.skipIf(!url)("/ with a real session table", () => {
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
     await applyMigrations(sql);
-    const [user] = await sql.query<{ id: string }>("SELECT id FROM users WHERE username = 'admin'");
+    const { insertFirstUser } = await import("@/lib/repositories/accounts");
+    const user = await insertFirstUser(sql, "dono", "senha-de-teste");
     userId = user!.id;
     ({ default: HomePage } = (await import("@/app/page")) as unknown as { default: typeof HomePage });
     ({ Landing } = await import("@/components/landing/landing"));

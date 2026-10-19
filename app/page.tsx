@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { HomeDashboard } from "@/components/dashboard/home-dashboard";
 import { Landing } from "@/components/landing/landing";
 import { AppShell } from "@/components/nav/app-shell";
@@ -17,6 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const user = await currentUser();
   if (!user) return <Landing />;
+  if (user.mustChangePassword) redirect("/trocar-senha");
   return (
     <AppShell user={user}>
       <Suspense fallback={<PageSkeleton />}>

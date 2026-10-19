@@ -26,8 +26,20 @@ export function parsePassword(value: unknown): AccountResult<string> {
   return { ok: true, value };
 }
 
+export const MIN_NEW_PASSWORD = 8;
+
+/** A password being set now: at least 8 characters. Sign-in still accepts older, shorter ones. */
+export function parseNewPassword(value: unknown): AccountResult<string> {
+  const parsed = parsePassword(value);
+  if (!parsed.ok) return parsed;
+  if (parsed.value.length < MIN_NEW_PASSWORD) {
+    return { ok: false, message: `A nova senha precisa ter pelo menos ${MIN_NEW_PASSWORD} caracteres.` };
+  }
+  return parsed;
+}
+
 export function parsePasswordPair(password: unknown, confirm: unknown): AccountResult<string> {
-  const parsed = parsePassword(password);
+  const parsed = parseNewPassword(password);
   if (!parsed.ok) return parsed;
   if (password !== confirm) return { ok: false, message: "As senhas não coincidem." };
   return parsed;

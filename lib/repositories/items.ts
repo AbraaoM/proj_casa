@@ -1,3 +1,4 @@
+import { attribution } from "@/lib/agent/actor";
 import type { Sql } from "@/lib/db/client";
 import { mapEvent, mapItem } from "@/lib/db/rows";
 import { EVENT_SELECT, listItemEvents } from "@/lib/repositories/events";
@@ -84,14 +85,14 @@ export async function insertItem(sql: Sql, input: CreateItemInput): Promise<Care
         title, category, status, priority,
         due_date, last_done_on, interval_days, notes,
         created_by_agent, external_key, area_id, interval_months,
-        interval_hours, ends_on
+        interval_hours, ends_on, created_by_user_id, agent_key_id
       )
       VALUES (
         $1, $2::uuid, $3::uuid, $4::uuid,
         $5, $6, $7, $8,
         $9::date, $10::date, $11, $12,
         true, $13, $14::uuid, $15,
-        $16, $17::date
+        $16, $17::date, $18::uuid, $19::uuid
       )
       RETURNING id
     `,
@@ -113,6 +114,8 @@ export async function insertItem(sql: Sql, input: CreateItemInput): Promise<Care
       input.interval_months,
       input.interval_hours ?? null,
       input.ends_on ?? null,
+      attribution().userId,
+      attribution().keyId,
     ],
   );
   const id = rows[0]?.id;
@@ -179,11 +182,13 @@ export async function writeDone(sql: Sql, write: DoneWrite): Promise<{ item: Car
         INSERT INTO care_events (
           care_item_id, domain, dog_id, family_member_id, vehicle_id, area_id,
           category, title, done_on, notes, provider,
-          weight_kg, odometer_km, amount_cents, created_by_agent, external_key
+          weight_kg, odometer_km, amount_cents, created_by_agent, external_key,
+          created_by_user_id, agent_key_id
         )
         SELECT i.id, i.domain, i.dog_id, i.family_member_id, i.vehicle_id, i.area_id,
                i.category, i.title, $2::date, $3, $14,
-               $4, $5, $6, true, $7
+               $4, $5, $6, true, $7,
+               $15::uuid, $16::uuid
         FROM care_items i
         WHERE i.id = $1::uuid
         RETURNING id
@@ -234,6 +239,8 @@ export async function writeDone(sql: Sql, write: DoneWrite): Promise<{ item: Car
       write.update_weight,
       write.update_odometer,
       write.provider,
+      attribution().userId,
+      attribution().keyId,
     ],
   );
   const eventId = rows[0]?.id;
