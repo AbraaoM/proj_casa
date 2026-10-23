@@ -243,12 +243,24 @@ Ferramentas (as mesmas regras das rotas REST):
 | `listar_cadastros` | ids e nomes de cães, família, carros e áreas | não |
 | `listar_itens` | pendências com filtro | não |
 | `historico` | histórico de um cão, carro, pessoa ou área | não |
-| `adicionar_item` | nova pendência ou lembrete | sim |
+| `adicionar_item` | nova pendência. No carro, `odometer_km` grava o hodômetro e `due_date` fica em Próximos. Remédio leva `interval_hours` (1x ao dia = 24) e `ends_on` | sim |
+| `atualizar_item` | corrige pendência: status, vencimento, um intervalo, notas | sim |
 | `marcar_feito` | conclui e reagenda; não aceita valor | sim |
 | `registrar_dose` | dose de remédio por hora | sim |
-| `registrar_evento` | algo feito sem pendência; não aceita valor | sim |
+| `listar_doses` | doses de um item e a próxima | não |
+| `registrar_evento` | algo já feito, sem pendência e sem data futura; não aceita valor | sim |
+| `anular_evento` | anula ou restaura um evento ou uma dose | sim |
 | `registrar_custo` | o custo que a pessoa disse, num evento recém-concluído | sim |
+| `cadastrar` | cria ou atualiza cão, pessoa, carro ou área | sim |
+| `clima` | tempo agora e se convém adiar o lado de fora | não |
 | `resumo_financeiro` | resumo do mês | não |
+| `listar_financas` | contas, categorias e contas a pagar | não |
+| `criar_conta` | conta com o saldo de abertura que a pessoa disse | sim |
+| `conta_a_pagar` | cria ou corrige a conta recorrente que a pessoa confirmou | sim |
+| `pagar_conta` | paga a conta; o valor é o da conta, salvo o que a pessoa disser | sim |
+| `definir_orcamento` | teto de uma categoria, com o valor que a pessoa disse | sim |
+| `conferir_conta` | saldo que o banco mostrou e conciliação | sim |
+| `ajustar_casa` | lê a cidade; muda cidade ou fuso quando a pessoa pede | sim |
 
 **Regra de finanças.** Nenhuma ferramenta cria lançamento por iniciativa do agente. Quando `marcar_feito` ou `registrar_evento` conclui algo que costuma custar dinheiro (consulta, vacina, troca de óleo, conserto, dentista, remédio…), a resposta traz `ask_cost: true`. O agente pergunta quanto custou e só então chama `registrar_custo` com o valor dito. O servidor recusa `registrar_custo` se o evento tiver mais de 72 h, já tiver custo, estiver anulado ou tiver sido gravado por outra pessoa.
 

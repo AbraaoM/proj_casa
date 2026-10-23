@@ -248,6 +248,30 @@ describe.skipIf(!url)("telegram bot", () => {
     expect(messages()).toHaveLength(1);
   });
 
+  test("km and a future oil date the person states show on the car page", async () => {
+    const { createVehicle } = await import("@/lib/services/subjects");
+    const car = await createVehicle(sql, { name: "Onix", make: null, model: null, year: null, plate: null, odometer_km: null, notes: null });
+    model = scripted([
+      {
+        tool: "adicionar_item",
+        input: { domain: "car", vehicle_id: car.id, title: "Troca de óleo", category: "oil", due_date: "2026-12-15", odometer_km: 45200 },
+      },
+      "Anotei: 45.200 km e troca de óleo em 15/12.",
+    ]).model;
+    await handle(text({ id: MEMBER_TG, type: "private" }, MEMBER_TG, "o carro está com 45200 km, próxima troca de óleo dia 2026-12-15"));
+
+    const [vehicle] = await sql.query<{ odometer_km: number | null }>("SELECT odometer_km FROM vehicles WHERE id = $1::uuid", [car.id]);
+    expect(vehicle?.odometer_km).toBe(45200);
+    const items = await sql.query<{ title: string; category: string; due_date: string; status: string }>(
+      "SELECT title, category, due_date::text AS due_date, status FROM care_items WHERE vehicle_id = $1::uuid",
+      [car.id],
+    );
+    expect(items).toEqual([expect.objectContaining({ title: "Troca de óleo", category: "oil", due_date: "2026-12-15", status: "active" })]);
+    const events = await sql.query("SELECT id FROM care_events WHERE vehicle_id = $1::uuid AND category = 'oil'", [car.id]);
+    expect(events).toEqual([]);
+    expect(messages().at(-1)!.body.text).toContain("Anotei");
+  });
+
   test("the same update twice is handled once", async () => {
     model = scripted(["Oi!"]).model;
     const update = text({ id: MEMBER_TG, type: "private" }, MEMBER_TG, "oi");

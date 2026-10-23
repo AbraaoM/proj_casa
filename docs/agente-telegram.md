@@ -1,6 +1,6 @@
 # Bot do Telegram
 
-O bot é o seu agente dentro do Telegram, no privado e no grupo da família. Ele usa as mesmas ferramentas do MCP (`docs/agente-conectar.md`, seção 11), grava em nome de quem escreveu e manda um resumo do dia de manhã.
+O bot é o seu agente dentro do Telegram, no privado e no grupo da família. Ele usa o catálogo inteiro do MCP (`docs/agente-conectar.md`, seção 11), com o mesmo manual de operação, grava em nome de quem escreveu e manda um resumo do dia de manhã. Uma data prevista (a próxima troca de óleo) vira pendência em Próximos; a quilometragem vai no hodômetro do carro. Se a gravação falha, ele diz que não gravou, em vez de confirmar.
 
 Tudo é configurado no app, em **Agentes → Bot** (`/agentes/bot`), só pela conta master. A única variável de ambiente é `CASA_SECRET_KEY`.
 
@@ -45,7 +45,7 @@ Padrão: **Groq**, modelo `openai/gpt-oss-120b`, no plano grátis.
 1. Crie a chave em https://console.groq.com/keys.
 2. Em **Settings → Data Controls** (https://console.groq.com/settings/data-controls), ative **Zero Data Retention**. A Groq não treina com os dados da API e, por padrão, não guarda as conversas, mas pode guardar até 30 dias para investigar falha ou abuso; o ZDR desliga isso ([Your Data in GroqCloud](https://console.groq.com/docs/your-data)).
 
-No plano grátis há limite de pedidos e de tokens por minuto e por dia. Se o bot bater no limite, ele responde "Cheguei no limite do plano de IA agora" e volta a funcionar no minuto seguinte. Para uma família, cabe com folga; o bot manda poucas ferramentas e pouco histórico a cada mensagem para isso.
+No plano grátis há limite de pedidos e de tokens por minuto e por dia. Se o bot bater no limite, ele responde "Cheguei no limite do plano de IA agora" e volta a funcionar no minuto seguinte. Cada mensagem manda o catálogo inteiro e as 12 últimas falas. Para uma família cabe; se estourar, é esse aviso, e a mensagem seguinte segue.
 
 Outros provedores na tela: OpenAI, Anthropic, Google (Gemini), OpenRouter e qualquer API compatível com OpenAI (com URL base `https://…/v1`).
 

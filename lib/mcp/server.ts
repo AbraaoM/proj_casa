@@ -10,6 +10,7 @@ import { withCaller, type AgentCaller } from "@/lib/agent/actor";
 import { recordActivity } from "@/lib/agent/activity";
 import { authorize, type AuthResult } from "@/lib/agent/auth";
 import { errorBody } from "@/lib/agent/http";
+import { PLAYBOOK } from "@/lib/agent/playbook";
 import { AGENT_TOOLS, type AgentTool, type ToolContext } from "@/lib/agent/tools";
 import { getSql } from "@/lib/db/client";
 import { DatabaseUnavailableError } from "@/lib/db/client";
@@ -19,12 +20,7 @@ import { todayInTimeZone } from "@/lib/domain/dates";
 export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
 export const SERVER_INFO = { name: "casa", title: "Casa", version: "1.0.0" };
 
-const INSTRUCTIONS = [
-  "Casa is the household dashboard: tasks and history for dogs, house, car, family and simple finance.",
-  "Dates are calendar days (YYYY-MM-DD) in the household time zone.",
-  "Never create a finance entry on your own. After finishing a task that usually costs money (ask_cost: true), ask the person how much it cost and only then call registrar_custo.",
-  "Use listar_cadastros to find ids. Answer the person in their language.",
-].join(" ");
+const INSTRUCTIONS = PLAYBOOK;
 
 type JsonRpcId = string | number | null;
 type JsonRpcMessage = { jsonrpc?: unknown; id?: JsonRpcId; method?: unknown; params?: unknown };

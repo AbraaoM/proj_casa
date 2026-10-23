@@ -2,23 +2,18 @@ import { APICallError, generateText, jsonSchema, stepCountIs, tool, type Languag
 import { withCaller, type AgentCaller } from "@/lib/agent/actor";
 import { recordActivity } from "@/lib/agent/activity";
 import { errorBody } from "@/lib/agent/http";
+import { PLAYBOOK } from "@/lib/agent/playbook";
 import { AGENT_TOOLS, type ToolContext } from "@/lib/agent/tools";
 import { parseAgentLabel } from "@/lib/agent/keys";
 import type { StoredMessage } from "@/lib/repositories/bot";
 
-/**
- * The tools the chat bot gets: the shared catalog minus listar_itens (atencao_hoje covers it),
- * to keep each turn small for the free-plan token limits.
- */
-export const BOT_TOOL_NAMES = [
-  "atencao_hoje", "listar_cadastros", "historico", "adicionar_item", "marcar_feito",
-  "registrar_dose", "registrar_evento", "registrar_custo", "resumo_financeiro",
-] as const;
+/** The bot gets the whole shared catalog, plus its own chat tools. */
+export const BOT_TOOL_NAMES = AGENT_TOOLS.map((entry) => entry.name);
 
 /** Messages of history sent to the model (the free plan has a per-minute token limit). */
 export const HISTORY_LIMIT = 12;
-export const MAX_STEPS = 5;
-export const MAX_OUTPUT_TOKENS = 700;
+export const MAX_STEPS = 8;
+export const MAX_OUTPUT_TOKENS = 1000;
 
 export type AgentTurn = {
   model: LanguageModel;
@@ -38,10 +33,8 @@ export type AgentReply = { text: string; privateText: string | null; renamedTo: 
 export function systemPrompt(turn: Pick<AgentTurn, "agentName" | "personName" | "inGroup" | "context">): string {
   return [
     `Você é ${turn.agentName}, o agente da casa de ${turn.personName}, no Telegram. Responda em português do Brasil, curto e direto.`,
-    `Hoje é ${turn.context.today} (fuso ${turn.context.clock.timeZone}). Datas em AAAA-MM-DD.`,
-    "Use as ferramentas para ler e gravar na Casa: pendências, histórico de cães, carro, família, casa e finanças. Não invente dados; se não souber o id, use listar_cadastros.",
-    "Finanças: nunca crie lançamento por conta própria. Quando marcar_feito ou registrar_evento responder ask_cost: true, pergunte quanto custou e só chame registrar_custo com o valor que a pessoa disser (em centavos).",
-    "Antes de gravar algo ambíguo, confirme em uma frase. Depois de gravar, diga o que ficou registrado.",
+    `Hoje é ${turn.context.today} (fuso ${turn.context.clock.timeZone}).`,
+    PLAYBOOK,
     "Se a pessoa quiser dar outro nome a você, use definir_meu_nome.",
     turn.inGroup
       ? `Você está no grupo da família. Quem falou agora é ${turn.personName}; grave em nome dessa pessoa. Assunto de saúde, dinheiro ou outro assunto só dela: use responder_no_privado e diga no grupo apenas que respondeu no privado.`
@@ -59,9 +52,23 @@ export function toModelMessages(history: StoredMessage[], text: string, personNa
   return messages;
 }
 
+function failedWrite(body: { message: string; details?: Array<{ field: string; message: string }> }): string {
+  const detail = body.details?.[0];
+  const why = detail ? `${detail.field}: ${detail.message}` : body.message;
+  return `Não consegui gravar. ${why}`;
+}
+
+/** ajustar_casa with no fields only reads the city, so it must not count as a saved write. */
+function savedSomething(name: string, args: Record<string, unknown>): boolean {
+  if (name === "ajustar_casa") return Object.keys(args).length > 0;
+  return true;
+}
+
 export async function runAgentTurn(turn: AgentTurn): Promise<AgentReply> {
   let privateText: string | null = null;
   let renamedTo: string | null = null;
+  let writeError: string | null = null;
+  let writeOk = false;
   const tools: ToolSet = {};
   for (const name of BOT_TOOL_NAMES) {
     const shared = AGENT_TOOLS.find((candidate) => candidate.name === name);
@@ -72,11 +79,14 @@ export async function runAgentTurn(turn: AgentTurn): Promise<AgentReply> {
       execute: async (args: Record<string, unknown>) => {
         let status = 200;
         try {
-          return await withCaller(turn.caller, "telegram", () => shared.run(args ?? {}, turn.context));
+          const data = await withCaller(turn.caller, "telegram", () => shared.run(args ?? {}, turn.context));
+          if (shared.writes && savedSomething(shared.name, args ?? {})) writeOk = true;
+          return data;
         } catch (error) {
           const body = errorBody(error);
           status = body.code === "validation_error" ? 400 : body.code === "not_found" ? 404 : 500;
           if (status === 500) console.error(error);
+          if (shared.writes) writeError = failedWrite(body);
           return { ok: false, error: body };
         } finally {
           if (shared.writes) await recordActivity(turn.caller, "telegram", `tool ${shared.name}`, status);
@@ -115,7 +125,9 @@ export async function runAgentTurn(turn: AgentTurn): Promise<AgentReply> {
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     maxRetries: 1,
   });
-  const text = result.text.trim() || (privateText ? "Te respondi no privado." : "Feito.");
+  const text = writeError && !writeOk
+    ? writeError
+    : result.text.trim() || (privateText ? "Te respondi no privado." : "Feito.");
   return { text, privateText, renamedTo };
 }
 

@@ -51,6 +51,7 @@ describe("MCP endpoint", () => {
     expect(body.result.capabilities.tools).toBeDefined();
     expect(body.result.instructions).toContain("Agente da casa");
     expect(body.result.instructions).toContain("registrar_custo");
+    expect(body.result.instructions).toContain("interval_hours");
   });
 
   test("an unknown protocol version gets the newest one", async () => {

@@ -3,28 +3,38 @@
  * Each tool maps to the same parse functions and services as the REST routes in /api/agent,
  * so the rules (validation, idempotency, rescheduling) are the same.
  *
- * Finance rule: no tool creates a finance entry on the agent's own initiative.
- * marcar_feito and registrar_evento take no amount. When the finished task usually costs money,
- * they answer ask_cost: true, the agent asks the person how much it cost, and only with that
- * answer calls registrar_custo.
+ * Finance rule: no tool creates a loose transaction. marcar_feito and registrar_evento take no
+ * amount. When the finished task usually costs money, they answer ask_cost: true; the agent asks
+ * and only then calls registrar_custo. conta_a_pagar, pagar_conta and definir_orcamento carry
+ * amount_cents only for a number the person said.
  */
 import { attribution } from "@/lib/agent/actor";
 import type { Sql } from "@/lib/db/client";
-import { parseDoseBody } from "@/lib/domain/doses";
-import { parseCreateEvent } from "@/lib/domain/events";
-import { parseMonthQuery } from "@/lib/domain/finance/validate";
-import { isUuid } from "@/lib/domain/dates";
-import { DOMAINS, SUBJECT_KINDS, type AttentionItem, type CareItem, type Clock, type Domain, type SubjectKind } from "@/lib/domain/types";
-import { parseCreateItem, parseDoneBody, parseItemListQuery } from "@/lib/domain/validate";
+import { isIsoDate, isUuid } from "@/lib/domain/dates";
+import { parseDoseBody, resolveGivenAt } from "@/lib/domain/doses";
+import { parseAreaCreate, parseAreaPatch } from "@/lib/domain/areas";
+import { parseDogCreate, parseDogPatch, parseFamilyCreate, parseFamilyPatch, parseSettingsPatch, parseVehicleCreate, parseVehiclePatch } from "@/lib/domain/entities";
+import { parseCreateEvent, parseEventPatch } from "@/lib/domain/events";
+import { ACCOUNT_KINDS, BILL_FREQUENCIES, BILL_KINDS } from "@/lib/domain/finance/types";
+import { parseAccountCreate, parseAccountPatch, parseBalanceCheck, parseBillCreate, parseBillPatch, parseBudgetPut, parseMonthQuery, parsePay } from "@/lib/domain/finance/validate";
+import { AREA_KINDS, DOMAINS, SEXES, SUBJECT_KINDS, type AttentionItem, type CareItem, type Clock, type Domain, type SubjectKind } from "@/lib/domain/types";
+import { parseCreateItem, parseDoneBody, parseItemListQuery, parseItemPatch } from "@/lib/domain/validate";
 import { AppError, notFound, validationError, type FieldError } from "@/lib/errors";
-import { listAreas } from "@/lib/services/areas";
+import { bumpOdometer } from "@/lib/repositories/events";
+import { createArea, listAreas, updateArea } from "@/lib/services/areas";
 import { listAttention } from "@/lib/services/attention";
-import { recordDose, sqlDoseStore } from "@/lib/services/doses";
+import { getItemDoses, recordDose, sqlDoseStore } from "@/lib/services/doses";
 import { completeItem, createEvent, getEvent, updateEvent } from "@/lib/services/events";
+import { addBalanceCheck, createAccount, listAccountViews, reconcileAccount, updateAccount } from "@/lib/services/finance/accounts";
+import { createBill, listBills, payBill, updateBill } from "@/lib/services/finance/bills";
+import { putBudgets } from "@/lib/services/finance/budgets";
+import { listCategories } from "@/lib/services/finance/categories";
 import { getFinanceSummary } from "@/lib/services/finance/summary";
 import { getSubjectHistory } from "@/lib/services/history";
-import { createItem, listItems } from "@/lib/services/items";
-import { listDogs, listFamily, listVehicles } from "@/lib/services/subjects";
+import { createItem, listItems, updateItem } from "@/lib/services/items";
+import { patchSettings, readSettings } from "@/lib/services/settings";
+import { createDog, createFamily, createVehicle, listDogs, listFamily, listVehicles, updateDog, updateFamily, updateVehicle } from "@/lib/services/subjects";
+import { fetchWeather } from "@/lib/weather/open-meteo";
 
 export type ToolContext = { sql: Sql; today: string; clock: Clock };
 
@@ -93,6 +103,28 @@ function only(args: Record<string, unknown>, allowed: readonly string[]): Record
     throw validationError(`${extra[0]} is not a known field`, extra.map((field) => ({ field, message: "is not a known field" })));
   }
   return args;
+}
+
+/** Current kilometres stated with a new car task. Stored on the vehicle, not as a past event. */
+function readOdometer(args: Record<string, unknown>): number | undefined {
+  if (!("odometer_km" in args)) return undefined;
+  if (args.domain !== "car") {
+    throw validationError("odometer_km is only allowed for domain car", [{ field: "odometer_km", message: "is only allowed for domain car" }]);
+  }
+  const km = args.odometer_km;
+  if (typeof km !== "number" || !Number.isInteger(km) || km < 0 || km > 2_000_000) {
+    throw validationError("odometer_km must be an integer from 0 to 2000000", [{ field: "odometer_km", message: "must be an integer from 0 to 2000000" }]);
+  }
+  return km;
+}
+
+function doseBound(raw: unknown, field: "from" | "to", timeZone: string, now: string): string | null {
+  if (raw === undefined || raw === null || raw === "") return null;
+  if (typeof raw !== "string") throw validationError(`${field} must be a date or an ISO date-time`, [{ field, message: "must be a date or an ISO date-time" }]);
+  const text = isIsoDate(raw) ? `${raw}T${field === "from" ? "00:00" : "23:59:59"}` : raw;
+  const resolved = resolveGivenAt(text, timeZone, new Date(now));
+  if (!resolved) throw validationError(`${field} must be a date or an ISO date-time`, [{ field, message: "must be a date or an ISO date-time" }]);
+  return resolved;
 }
 
 function query(args: Record<string, unknown>): URLSearchParams {
@@ -207,16 +239,19 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
     name: "adicionar_item",
     title: "Nova pendência",
     description:
-      "Creates a task or reminder. dog needs dog_id, family needs family_member_id, car needs vehicle_id; house may take an area slug. Repeat with interval_days or interval_months.",
+      "Cria uma pendência. Cão exige dog_id, família family_member_id, carro vehicle_id; casa pode levar area. Um intervalo: interval_days, interval_months ou interval_hours (remédio; 1x ao dia = 24). No carro, odometer_km grava o hodômetro e due_date fica em Próximos, sem virar evento.",
     inputSchema: {
       type: "object",
       properties: {
         domain: domainEnum,
         title: str("Short title, e.g. 'Vermífugo'."),
         category: str("Category slug, e.g. vaccine, deworming, oil, cleaning, dentist."),
-        due_date: date("Due date YYYY-MM-DD in the household time zone."),
-        interval_days: int("Repeat every N days."),
+        due_date: date("Due date YYYY-MM-DD in the household time zone. A future oil change goes here."),
+        interval_days: int("Repeat every N days. Do not send with another interval."),
         interval_months: int("Repeat every N months (keeps the day)."),
+        interval_hours: int("Repeat every N hours, 1 to 168. Medicine once a day is 24."),
+        ends_on: date("Last day of an hourly treatment."),
+        odometer_km: int("Current car kilometres. Saved on the vehicle, not as a past event."),
         priority: { type: "string", enum: ["low", "normal", "high", "urgent"] },
         notes: str("Notes."),
         ...SUBJECT_IDS,
@@ -227,9 +262,50 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
     },
     writes: true,
     async run(args, { sql }) {
-      const value = must(parseCreateItem(args), "item");
+      const km = readOdometer(args);
+      const { odometer_km: _km, ...rest } = args;
+      void _km;
+      const value = must(parseCreateItem(rest), "item");
       const created = await createItem(sql, value);
-      return { item: compactItem(created.item), idempotent_replay: created.idempotentReplay };
+      if (km !== undefined && created.item.vehicle_id) await bumpOdometer(sql, created.item.vehicle_id, km);
+      return {
+        item: compactItem(created.item),
+        idempotent_replay: created.idempotentReplay,
+        ...(km !== undefined ? { odometer_km: km } : {}),
+      };
+    },
+  },
+  {
+    name: "atualizar_item",
+    title: "Corrigir pendência",
+    description: "Corrige uma pendência: título, categoria, status, prioridade, vencimento, um intervalo, ends_on ou notas.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        item_id: uuid("Task id."),
+        domain: domainEnum,
+        title: str("Short title."),
+        category: str("Category slug."),
+        status: { type: "string", enum: ["active", "paused", "completed", "cancelled"] },
+        priority: { type: "string", enum: ["low", "normal", "high", "urgent"] },
+        due_date: date("Due date YYYY-MM-DD, or null to clear."),
+        interval_days: int("Repeat every N days. Clears the other intervals."),
+        interval_months: int("Repeat every N months. Clears the other intervals."),
+        interval_hours: int("Repeat every N hours, 1 to 168. Clears the other intervals."),
+        ends_on: date("Last day of an hourly treatment, or null to clear."),
+        notes: str("Notes, or null to clear."),
+        ...SUBJECT_IDS,
+      },
+      required: ["item_id"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const id = String(args.item_id ?? "");
+      if (!isUuid(id)) throw notFound("Item was not found.");
+      const { item_id: _id, ...rest } = args;
+      void _id;
+      return { item: compactItem(await updateItem(sql, id, must(parseItemPatch(rest), "item"))) };
     },
   },
   {
@@ -298,6 +374,43 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
     },
   },
   {
+    name: "listar_doses",
+    title: "Doses do remédio",
+    description: "Lista as doses de um remédio e a próxima. from e to são dia ou data e hora.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        item_id: uuid("Medication task id."),
+        from: str("Start, YYYY-MM-DD or ISO date-time."),
+        to: str("End, YYYY-MM-DD or ISO date-time."),
+        include_voided: { type: "boolean", description: "Include voided doses." },
+      },
+      required: ["item_id"],
+      additionalProperties: false,
+    },
+    writes: false,
+    async run(args, { sql, clock }) {
+      const raw = only(args, ["item_id", "from", "to", "include_voided"]);
+      const id = String(raw.item_id ?? "");
+      if (!isUuid(id)) throw notFound("Item was not found.");
+      const view = await getItemDoses(sql, id, {
+        from: doseBound(raw.from, "from", clock.timeZone, clock.now),
+        to: doseBound(raw.to, "to", clock.timeZone, clock.now),
+        include_voided: raw.include_voided === true,
+        limit: 30,
+      }, clock);
+      return {
+        next_due_at: view.next_due_at,
+        next_due_time: view.next_due_time,
+        minutes_until_next: view.minutes_until_next,
+        late: view.late,
+        doses: view.doses.slice(0, 20).map((dose) => ({
+          id: dose.id, done_at: dose.done_at, notes: dose.notes, voided: dose.voided_at !== null,
+        })),
+      };
+    },
+  },
+  {
     name: "registrar_evento",
     title: "Registrar algo feito",
     description:
@@ -335,6 +448,29 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
     },
   },
   {
+    name: "anular_evento",
+    title: "Anular registro",
+    description: "Anula um evento ou uma dose errados. voided false desfaz. Nada é apagado.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        event_id: uuid("Event id."),
+        voided: { type: "boolean", description: "True voids it (default). False restores it." },
+      },
+      required: ["event_id"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["event_id", "voided"]);
+      const id = String(raw.event_id ?? "");
+      if (!isUuid(id)) throw notFound("Event was not found.");
+      const patch = must(parseEventPatch({ voided: raw.voided === undefined ? true : raw.voided }), "event");
+      const result = await updateEvent(sql, id, patch, today);
+      return { event: { id: result.event.id, voided: result.event.voided_at !== null }, notes: result.notes };
+    },
+  },
+  {
     name: "registrar_custo",
     title: "Registrar o custo",
     description:
@@ -360,6 +496,95 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
     },
   },
   {
+    name: "cadastrar",
+    title: "Cadastrar sujeito",
+    description: "Cria ou atualiza cão, pessoa, carro ou área. Com id (slug na área), atualiza; archived true arquiva. Criar exige name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["dog", "family", "vehicle", "area"] },
+        id: str("Id to update. For an area, the slug works too."),
+        name: str("Name."),
+        slug: str("Area slug, when creating an area."),
+        area_kind: { type: "string", enum: [...AREA_KINDS], description: "room, outdoor or system." },
+        archived: { type: "boolean" },
+        notes: str("Notes."),
+        breed: str("Dog breed."),
+        sex: { type: "string", enum: [...SEXES] },
+        birth_date: date("Birth date."),
+        weight_kg: { type: "number", description: "Dog weight." },
+        relationship: str("How the person is related."),
+        make: str("Car make."),
+        model: str("Car model."),
+        year: int("Car year."),
+        plate: str("Plate."),
+        odometer_km: int("Current kilometres, when creating or updating the car."),
+        sort_order: int("Area order."),
+      },
+      required: ["kind"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["kind", "id", "name", "slug", "area_kind", "archived", "notes", "breed", "sex", "birth_date", "weight_kg", "relationship", "make", "model", "year", "plate", "odometer_km", "sort_order"]);
+      const kind = raw.kind;
+      if (kind !== "dog" && kind !== "family" && kind !== "vehicle" && kind !== "area") {
+        throw validationError("kind is not valid", [{ field: "kind", message: "is not valid" }]);
+      }
+      const id = raw.id === undefined || raw.id === null ? null : String(raw.id);
+      const body: Record<string, unknown> = {};
+      for (const key of ["name", "notes", "breed", "sex", "birth_date", "weight_kg", "relationship", "make", "model", "year", "plate", "odometer_km", "archived"]) {
+        if (key in raw) body[key] = raw[key];
+      }
+      if (!id && kind === "area") {
+        if ("slug" in raw) body.slug = raw.slug;
+        if ("sort_order" in raw) body.sort_order = raw.sort_order;
+        if ("area_kind" in raw) body.kind = raw.area_kind;
+      } else if (kind === "area") {
+        if ("sort_order" in raw) body.sort_order = raw.sort_order;
+        if ("area_kind" in raw) body.kind = raw.area_kind;
+      }
+      if (kind === "dog") {
+        if (id) {
+          if (!isUuid(id)) throw notFound("Dog was not found.");
+          return { dog: await updateDog(sql, id, must(parseDogPatch(body), "dog")) };
+        }
+        return { dog: await createDog(sql, must(parseDogCreate(body), "dog")) };
+      }
+      if (kind === "family") {
+        if (id) {
+          if (!isUuid(id)) throw notFound("Family member was not found.");
+          return { family: await updateFamily(sql, id, must(parseFamilyPatch(body), "family")) };
+        }
+        return { family: await createFamily(sql, must(parseFamilyCreate(body), "family")) };
+      }
+      if (kind === "vehicle") {
+        if (id) {
+          if (!isUuid(id)) throw notFound("Vehicle was not found.");
+          return { vehicle: await updateVehicle(sql, id, must(parseVehiclePatch(body), "vehicle")) };
+        }
+        return { vehicle: await createVehicle(sql, must(parseVehicleCreate(body), "vehicle")) };
+      }
+      if (id) return { area: await updateArea(sql, id, must(parseAreaPatch(body), "area")) };
+      const created = await createArea(sql, must(parseAreaCreate(body), "area"));
+      return { area: created.area, idempotent_replay: created.idempotentReplay };
+    },
+  },
+  {
+    name: "clima",
+    title: "Clima",
+    description: "Tempo agora e se convém adiar tarefa ao ar livre.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    writes: false,
+    async run(args, { sql }) {
+      only(args, []);
+      const settings = await readSettings(sql);
+      const weather = await fetchWeather({ latitude: settings.latitude, longitude: settings.longitude, timezone: settings.timezone });
+      if (!weather) return { available: false, city: settings.city };
+      return { available: true, city: settings.city, ...weather };
+    },
+  },
+  {
     name: "resumo_financeiro",
     title: "Resumo financeiro",
     description: "Month summary: income, expenses, result, by category, balances, bills due in 30 days and budget overruns. Read only.",
@@ -369,6 +594,218 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
       const raw = only(args, ["month"]);
       const month = must(parseMonthQuery(query(raw), today), "month");
       return { summary: await getFinanceSummary(sql, month, today) };
+    },
+  },
+  {
+    name: "listar_financas",
+    title: "Contas e contas a pagar",
+    description: "Contas, categorias e contas a pagar (ativas, sugeridas e pausadas).",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    writes: false,
+    async run(args, { sql, today }) {
+      only(args, []);
+      const [accounts, categories, bills] = await Promise.all([
+        listAccountViews(sql, today),
+        listCategories(sql),
+        listBills(sql, ["active", "suggested", "paused"]),
+      ]);
+      return {
+        accounts: accounts.map((account) => ({ slug: account.slug, name: account.name, kind: account.kind, balance_cents: account.balance_cents })),
+        categories: categories.map((category) => ({ slug: category.slug, name: category.name, kind: category.kind })),
+        bills: bills.map((bill) => ({
+          slug: bill.slug, name: bill.name, status: bill.status, amount_cents: bill.amount_cents,
+          next_due_date: bill.next_due_date, frequency: bill.frequency, amount_varies: bill.amount_varies,
+        })),
+      };
+    },
+  },
+  {
+    name: "criar_conta",
+    title: "Conta bancária",
+    description: "Cria a conta com o saldo de abertura que a pessoa disse. Com ref, atualiza; archived true arquiva.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ref: str("Slug or id, when updating."),
+        slug: str("Slug, when creating."),
+        name: str("Name."),
+        kind: { type: "string", enum: [...ACCOUNT_KINDS] },
+        opening_balance_cents: int("Opening balance in cents, as the person said. A card or loan is what is owed."),
+        opening_date: date("Opening date."),
+        credit_limit_cents: int("Card limit in cents."),
+        statement_close_day: int("Card statement close day, 1 to 31."),
+        due_day: int("Card due day, 1 to 31."),
+        notes: str("Notes."),
+        archived: { type: "boolean" },
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["ref", "slug", "name", "kind", "opening_balance_cents", "opening_date", "credit_limit_cents", "statement_close_day", "due_day", "notes", "archived"]);
+      if (raw.ref) {
+        const { ref: _ref, slug: _slug, ...rest } = raw;
+        void _ref;
+        void _slug;
+        return { account: await updateAccount(sql, String(raw.ref), must(parseAccountPatch(rest), "account"), today) };
+      }
+      const { ref: _ref, archived: _archived, ...rest } = raw;
+      void _ref;
+      void _archived;
+      const created = await createAccount(sql, must(parseAccountCreate(rest), "account"), today);
+      return { account: created.account, idempotent_replay: created.idempotentReplay };
+    },
+  },
+  {
+    name: "conta_a_pagar",
+    title: "Conta a pagar",
+    description: "Cria ou corrige a conta a pagar que a pessoa confirmou, com o valor em centavos que ela disse. Sem ref, cria já active.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ref: str("Slug or id, when updating."),
+        slug: str("Slug, when creating."),
+        name: str("Name, e.g. Luz."),
+        kind: { type: "string", enum: [...BILL_KINDS] },
+        amount_cents: int("Amount in cents the person said."),
+        amount_varies: { type: "boolean" },
+        category: str("Finance category slug."),
+        account: str("Account slug or id."),
+        frequency: { type: "string", enum: [...BILL_FREQUENCIES] },
+        interval: int("Every N periods."),
+        day_of_month: int("Day of month, 1 to 31."),
+        next_due_date: date("Next due date."),
+        end_date: date("Last due date."),
+        remaining: int("Installments left."),
+        autopay: { type: "boolean" },
+        status: { type: "string", enum: ["suggested", "active", "paused", "ended"] },
+        notes: str("Notes."),
+        external_key: externalKey,
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["ref", "slug", "name", "kind", "amount_cents", "amount_varies", "category", "account", "frequency", "interval", "day_of_month", "next_due_date", "end_date", "remaining", "autopay", "status", "notes", "external_key"]);
+      if (raw.ref) {
+        const { ref: _ref, slug: _slug, external_key: _key, ...rest } = raw;
+        void _ref;
+        void _slug;
+        void _key;
+        return { bill: await updateBill(sql, String(raw.ref), must(parseBillPatch(rest), "bill")) };
+      }
+      const { ref: _ref, ...rest } = raw;
+      void _ref;
+      const created = await createBill(sql, must(parseBillCreate(rest), "bill"));
+      return { bill: created.bill, idempotent_replay: created.idempotentReplay };
+    },
+  },
+  {
+    name: "pagar_conta",
+    title: "Pagar conta",
+    description: "Paga uma conta a pagar. Sem amount_cents usa o valor da conta; se a pessoa disse outro, mande esse amount_cents.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ref: str("Bill slug or id."),
+        paid_on: date("Payment date. Default today."),
+        amount_cents: int("Amount in cents, only when the person said a different one."),
+        account: str("Account slug or id."),
+        notes: str("Notes."),
+        external_key: externalKey,
+      },
+      required: ["ref"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["ref", "paid_on", "amount_cents", "account", "notes", "external_key"]);
+      const ref = String(raw.ref ?? "");
+      if (!ref) throw notFound("Bill was not found.");
+      const { ref: _ref, ...rest } = raw;
+      void _ref;
+      const paid = await payBill(sql, ref, must(parsePay(rest), "payment"), today);
+      return {
+        bill: { slug: paid.bill.slug, next_due_date: paid.bill.next_due_date, status: paid.bill.status },
+        event: { id: paid.event.id, done_on: paid.event.done_on },
+        idempotent_replay: paid.idempotentReplay,
+      };
+    },
+  },
+  {
+    name: "definir_orcamento",
+    title: "Orçamento",
+    description: "Define o teto de uma categoria de despesa com o valor em centavos que a pessoa disse. month vazio é o padrão; amount_cents null remove.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: str("Expense category slug."),
+        amount_cents: { anyOf: [{ type: "integer" }, { type: "null" }], description: "Cap in cents the person said, or null to remove it." },
+        month: { type: ["string", "null"], pattern: "^\\d{4}-\\d{2}$", description: "YYYY-MM, or null for the default budget." },
+      },
+      required: ["category", "amount_cents"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["category", "amount_cents", "month"]);
+      const parsed = must(parseBudgetPut({ month: raw.month ?? null, items: [{ category: raw.category, amount_cents: raw.amount_cents }] }), "budget");
+      return { budget: await putBudgets(sql, parsed, today) };
+    },
+  },
+  {
+    name: "conferir_conta",
+    title: "Conferir saldo",
+    description: "Grava o saldo que a pessoa leu no banco e concilia se o calculado bater.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        account: str("Account slug or id."),
+        date: date("The day the bank showed that balance."),
+        balance_cents: int("Balance in cents, as shown by the bank. A card is what is owed."),
+        external_key: externalKey,
+      },
+      required: ["account", "date", "balance_cents"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["account", "date", "balance_cents", "external_key"]);
+      const account = String(raw.account ?? "");
+      if (!account) throw notFound("Account was not found.");
+      const check = must(parseBalanceCheck({ date: raw.date, balance_cents: raw.balance_cents, external_key: raw.external_key ?? null }, ), "balance");
+      await addBalanceCheck(sql, account, check, today);
+      const result = await reconcileAccount(sql, account, check.date, today);
+      return {
+        reconciled: result.reconciled,
+        calculated_cents: result.calculated_cents,
+        informed_cents: result.informed_cents,
+        difference_cents: result.difference_cents,
+        cleared_count: result.cleared_count,
+      };
+    },
+  },
+  {
+    name: "ajustar_casa",
+    title: "Cidade e fuso",
+    description: "Lê a cidade da casa. Muda cidade, fuso ou coordenadas só quando a pessoa pedir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        city: str("City."),
+        region: str("Region, e.g. SP."),
+        country: str("Country, e.g. BR."),
+        latitude: { type: "number" },
+        longitude: { type: "number" },
+        timezone: str("IANA time zone, e.g. America/Sao_Paulo."),
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["city", "region", "country", "latitude", "longitude", "timezone"]);
+      const settings = Object.keys(raw).length === 0 ? await readSettings(sql) : await patchSettings(sql, must(parseSettingsPatch(raw), "settings"));
+      return { city: settings.city, region: settings.region, country: settings.country, latitude: settings.latitude, longitude: settings.longitude, timezone: settings.timezone };
     },
   },
 ];
