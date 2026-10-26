@@ -311,6 +311,37 @@ describe.skipIf(!url)("telegram bot", () => {
     expect(await n("SELECT count(*)::int AS n FROM telegram_chats WHERE chat_id = $1 AND NOT digest", [GROUP])).toBe(1);
   });
 
+  test("/casa lists the most urgent house routines with Feito, and a tap fills the checklist", async () => {
+    const { createArea } = await import("@/lib/services/areas");
+    const { parseAreaCreate } = await import("@/lib/domain/areas");
+    const { AGENT_TOOLS } = await import("@/lib/agent/tools");
+    const area = parseAreaCreate({ slug: "banheiro_teste", name: "Banheiro teste" });
+    if (!area.ok) throw new Error("bad area");
+    await createArea(sql, area.value);
+    const add = AGENT_TOOLS.find((entry) => entry.name === "adicionar_item")!;
+    const context = { sql, today, clock };
+    await add.run({ domain: "house", area: "banheiro_teste", title: "Limpeza do banheiro", category: "cleaning", interval_days: 3, last_done_on: "2026-10-10" }, context);
+    await add.run({ domain: "house", area: "banheiro_teste", title: "Trocar toalhas", category: "cleaning", interval_days: 3, last_done_on: "2026-10-17" }, context);
+
+    await handle(text({ id: MEMBER_TG, type: "private" }, MEMBER_TG, "/casa"));
+    const reply = messages().at(-1)!;
+    expect(String(reply.body.text)).toContain("Limpeza do banheiro (Banheiro teste): atrasada há 5 dias, última vez há 8 dias");
+    expect(String(reply.body.text)).not.toContain("Trocar toalhas");
+    const buttons = (reply.body.reply_markup as { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> }).inline_keyboard;
+    expect(buttons.map((row) => row[0]!.text)).toEqual(["Feito: Limpeza do banheiro"]);
+
+    sent = [];
+    await handle({ update_id: updateId++, callback_query: { id: "cb-casa", from: { id: MEMBER_TG, first_name: "Pessoa" }, data: buttons[0]![0]!.callback_data, message: { message_id: 1, chat: { id: MEMBER_TG, type: "private" } } } });
+    expect(sent.find((entry) => entry.method === "answerCallbackQuery")!.body.text).toBe("Limpeza do banheiro: feito");
+    const { listRoutines, compactRoutine } = await import("@/lib/services/routines");
+    const [done] = (await listRoutines(sql, { area: "banheiro_teste", status: null, limit: null, today, timeZone: clock.timeZone })).filter((entry) => entry.title === "Limpeza do banheiro");
+    expect(compactRoutine(done!)).toMatchObject({ last_done_on: today, done_by: "pessoa", via_agent: true, status: "ok" });
+
+    sent = [];
+    await handle(text({ id: MEMBER_TG, type: "private" }, MEMBER_TG, "/casa"));
+    expect(messages().at(-1)!.body.text).toBe("Tudo em dia na limpeza e rotina da casa.");
+  });
+
   test("Desconectar: the Telegram user is unknown again", async () => {
     const { unlinkTelegram } = await import("@/lib/repositories/bot");
     expect(await unlinkTelegram(sql, member.id)).toBe(true);
