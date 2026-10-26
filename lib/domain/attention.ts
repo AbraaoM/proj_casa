@@ -19,7 +19,7 @@ type AttentionSource = {
   next_due_at?: string | null;
 };
 
-const PRIORITY_RANK: Record<Priority, number> = {
+export const PRIORITY_RANK: Record<Priority, number> = {
   urgent: 0,
   high: 1,
   normal: 2,

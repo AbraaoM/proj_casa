@@ -18,7 +18,7 @@ import { parseCreateEvent, parseEventPatch } from "@/lib/domain/events";
 import { ACCOUNT_KINDS, BILL_FREQUENCIES, BILL_KINDS } from "@/lib/domain/finance/types";
 import { parseAccountCreate, parseAccountPatch, parseBalanceCheck, parseBillCreate, parseBillPatch, parseBudgetPut, parseMonthQuery, parsePay } from "@/lib/domain/finance/validate";
 import { AREA_KINDS, DOMAINS, SEXES, SUBJECT_KINDS, type AttentionItem, type CareItem, type Clock, type Domain, type SubjectKind } from "@/lib/domain/types";
-import { parseCreateItem, parseDoneBody, parseItemListQuery, parseItemPatch } from "@/lib/domain/validate";
+import { parseCreateItem, parseDoneBody, parseItemListQuery, parseItemPatch, parseRoutineQuery } from "@/lib/domain/validate";
 import { AppError, notFound, validationError, type FieldError } from "@/lib/errors";
 import { bumpOdometer } from "@/lib/repositories/events";
 import { createArea, listAreas, updateArea } from "@/lib/services/areas";
@@ -32,6 +32,8 @@ import { listCategories } from "@/lib/services/finance/categories";
 import { getFinanceSummary } from "@/lib/services/finance/summary";
 import { getSubjectHistory } from "@/lib/services/history";
 import { createItem, listItems, updateItem } from "@/lib/services/items";
+import { compactRoutine, listRoutines } from "@/lib/services/routines";
+import { ROUTINE_KIT } from "@/lib/domain/routine-kit";
 import { patchSettings, readSettings } from "@/lib/services/settings";
 import { createDog, createFamily, createVehicle, listDogs, listFamily, listVehicles, updateDog, updateFamily, updateVehicle } from "@/lib/services/subjects";
 import { fetchWeather } from "@/lib/weather/open-meteo";
@@ -91,6 +93,9 @@ function compactItem(item: CareItem | AttentionItem) {
     ...attention,
   };
 }
+
+const ROUTINE_RULE =
+  "House routines (domain house + interval_days or interval_months) are the /casa checklist. The app has no screen to edit a frequency: creating, changing or removing one happens only here, when the person asks you. Confirm the change in one sentence.";
 
 function must<T>(parsed: { ok: true; value: T } | { ok: false; details: FieldError[] }, label: string): T {
   if (!parsed.ok) throw validationError(parsed.details[0]?.message ?? `Invalid ${label}.`, parsed.details);
@@ -204,6 +209,35 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
     },
   },
   {
+    name: "rotinas_casa",
+    title: "Checklist da casa",
+    description:
+      "The house checklist (rotinas): each routine with its room, frequency, last time, who did it, days since, % of the interval used and status (overdue, never, due_soon, ok), most urgent first. Use it for 'quando limpei o banheiro', 'o que está mais atrasado na casa' or before suggesting routines. include_kit: true adds the suggested frequencies for rooms with no routine yet. " +
+      ROUTINE_RULE,
+    inputSchema: {
+      type: "object",
+      properties: {
+        area: str("House area slug or id."),
+        status: { type: "string", enum: ["overdue", "never", "due_soon", "ok"] },
+        limit: { type: "integer", minimum: 1, maximum: 200 },
+        include_kit: { type: "boolean", description: "Add the suggested routine kit (title, category, frequency)." },
+      },
+      additionalProperties: false,
+    },
+    writes: false,
+    async run(args, { sql, today, clock }) {
+      const raw = only(args, ["area", "status", "limit", "include_kit"]);
+      const { include_kit: includeKit, ...filters } = raw;
+      const value = must(parseRoutineQuery(query(filters)), "query");
+      const routines = await listRoutines(sql, { ...value, today, timeZone: clock.timeZone });
+      return {
+        as_of: today,
+        routines: routines.map(compactRoutine),
+        ...(includeKit === true ? { suggested_kit: ROUTINE_KIT } : {}),
+      };
+    },
+  },
+  {
     name: "historico",
     title: "Histórico",
     description: "History of one dog, vehicle, family member or house area: pending tasks, the latest events and a summary (last by category, weights, costs this year).",
@@ -239,7 +273,8 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
     name: "adicionar_item",
     title: "Nova pendência",
     description:
-      "Cria uma pendência. Cão exige dog_id, família family_member_id, carro vehicle_id; casa pode levar area. Um intervalo: interval_days, interval_months ou interval_hours (remédio; 1x ao dia = 24). No carro, odometer_km grava o hodômetro e due_date fica em Próximos, sem virar evento.",
+      "Cria uma pendência. Cão exige dog_id, família family_member_id, carro vehicle_id; casa pode levar area. Um intervalo: interval_days, interval_months ou interval_hours (remédio; 1x ao dia = 24). No carro, odometer_km grava o hodômetro e due_date fica em Próximos, sem virar evento. Rotina da casa (checklist): domain house + area + interval_days ou interval_months, category cleaning/deep_clean/maintenance, external_key 'rotina:<area>:<tarefa>' e, se a pessoa disser, last_done_on (o vencimento vira last_done_on + intervalo; sem ele, vence hoje). " +
+      ROUTINE_RULE,
     inputSchema: {
       type: "object",
       properties: {
@@ -247,6 +282,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
         title: str("Short title, e.g. 'Vermífugo'."),
         category: str("Category slug, e.g. vaccine, deworming, oil, cleaning, dentist."),
         due_date: date("Due date YYYY-MM-DD in the household time zone. A future oil change goes here."),
+        last_done_on: date("When it was last done (YYYY-MM-DD), if the person says. A house routine is then due one interval later."),
         interval_days: int("Repeat every N days. Do not send with another interval."),
         interval_months: int("Repeat every N months (keeps the day)."),
         interval_hours: int("Repeat every N hours, 1 to 168. Medicine once a day is 24."),
@@ -278,7 +314,9 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
   {
     name: "atualizar_item",
     title: "Corrigir pendência",
-    description: "Corrige uma pendência: título, categoria, status, prioridade, vencimento, um intervalo, ends_on ou notas.",
+    description:
+      "Corrige uma pendência: título, categoria, status, prioridade, vencimento, um intervalo, ends_on ou notas. Rotina da casa: mudar a frequência = novo interval_days ou interval_months (o vencimento é recalculado da última vez); remover a frequência = interval_days: null (vira pendência avulsa); pausar = status paused; apagar = status cancelled. " +
+      ROUTINE_RULE,
     inputSchema: {
       type: "object",
       properties: {
@@ -289,8 +327,9 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
         status: { type: "string", enum: ["active", "paused", "completed", "cancelled"] },
         priority: { type: "string", enum: ["low", "normal", "high", "urgent"] },
         due_date: date("Due date YYYY-MM-DD, or null to clear."),
-        interval_days: int("Repeat every N days. Clears the other intervals."),
-        interval_months: int("Repeat every N months. Clears the other intervals."),
+        last_done_on: date("When it was last done (YYYY-MM-DD). A house routine is then due one interval later."),
+        interval_days: { type: ["integer", "null"], description: "Repeat every N days. Clears the other intervals. null removes the frequency." },
+        interval_months: { type: ["integer", "null"], description: "Repeat every N months. Clears the other intervals. null removes the frequency." },
         interval_hours: int("Repeat every N hours, 1 to 168. Clears the other intervals."),
         ends_on: date("Last day of an hourly treatment, or null to clear."),
         notes: str("Notes, or null to clear."),

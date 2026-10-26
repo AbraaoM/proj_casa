@@ -3,7 +3,7 @@ import { AGENT_TOOLS, likelyCostsMoney } from "@/lib/agent/tools";
 import type { Sql } from "@/lib/db/client";
 
 const CATALOG = [
-  "atencao_hoje", "listar_cadastros", "listar_itens", "historico",
+  "atencao_hoje", "listar_cadastros", "listar_itens", "rotinas_casa", "historico",
   "adicionar_item", "atualizar_item", "marcar_feito", "registrar_dose", "listar_doses",
   "registrar_evento", "anular_evento", "registrar_custo",
   "cadastrar", "clima",
@@ -69,6 +69,23 @@ describe("agent tool catalog", () => {
     await expect(tool("atualizar_item").run({ item_id: "não-é-uuid", status: "paused" }, context)).rejects.toMatchObject({ code: "not_found" });
     await expect(tool("anular_evento").run({ event_id: "00000000-0000-4000-8000-000000000001", extra: 1 }, context)).rejects.toMatchObject({ code: "validation_error" });
     await expect(tool("anular_evento").run({ event_id: "não-é-uuid" }, context)).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  test("rotinas_casa rejects an unknown field or status before the database", async () => {
+    await expect(tool("rotinas_casa").run({ surprise: true }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("rotinas_casa").run({ status: "late" }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("rotinas_casa").run({ limit: 0 }, context)).rejects.toMatchObject({ code: "validation_error" });
+  });
+
+  test("the frequency of a house routine is changed only by the agent, and the tools say how", () => {
+    for (const name of ["rotinas_casa", "adicionar_item", "atualizar_item"]) {
+      expect(tool(name).description).toMatch(/only here, when the person asks you/);
+    }
+    expect(tool("atualizar_item").description).toMatch(/interval_days: null/);
+    const patch = tool("atualizar_item").inputSchema.properties as Record<string, { type: unknown }>;
+    expect(patch.interval_days!.type).toEqual(["integer", "null"]);
+    expect(patch).toHaveProperty("last_done_on");
+    expect(tool("adicionar_item").inputSchema.properties).toHaveProperty("last_done_on");
   });
 
   test("cadastrar without a name fails before the database", async () => {

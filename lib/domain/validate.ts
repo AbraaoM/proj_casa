@@ -1,4 +1,5 @@
 import { isIsoDate, isUuid } from "@/lib/domain/dates";
+import { ROUTINE_STATUSES, type RoutineStatus } from "@/lib/domain/routine";
 import {
   DEFAULT_WITHIN_DAYS,
   DOMAINS,
@@ -290,6 +291,31 @@ export function parseItemListQuery(params: URLSearchParams): ParseResult<ItemLis
     ok: true,
     value: { domain, status, dog_id, family_member_id, vehicle_id, area, limit },
   };
+}
+
+export type RoutineListQuery = {
+  /** House area id or slug. */
+  area: string | null;
+  status: RoutineStatus | null;
+  limit: number | null;
+};
+
+/** GET /api/agent/house/routines and the rotinas_casa tool. */
+export function parseRoutineQuery(params: URLSearchParams): ParseResult<RoutineListQuery> {
+  const details: FieldError[] = [];
+  const area = readQueryArea(params, "area", details);
+  const status = readQueryEnum(params, "status", ROUTINE_STATUSES, details);
+  const limitRaw = params.get("limit");
+  let limit: number | null = null;
+  if (limitRaw !== null) {
+    if (!/^\d+$/.test(limitRaw) || Number(limitRaw) < 1 || Number(limitRaw) > 200) {
+      details.push({ field: "limit", message: "must be an integer from 1 to 200" });
+    } else {
+      limit = Number(limitRaw);
+    }
+  }
+  if (details.length > 0) return { ok: false, details };
+  return { ok: true, value: { area, status, limit } };
 }
 
 export function parseAttentionQuery(params: URLSearchParams): ParseResult<{
