@@ -11,6 +11,8 @@ Tudo é configurado no app, em **Agentes → Bot** (`/agentes/bot`), só pela co
 - **Assunto pessoal no grupo** (saúde, dinheiro, algo só da pessoa): ele responde no privado e avisa no grupo que respondeu lá. Para isso a pessoa precisa ter falado com o bot no privado antes (o Telegram não deixa o bot começar uma conversa).
 - **Quem não está ligado** a uma conta da Casa: no privado recebe uma resposta educada pedindo para tocar em Conectar Telegram; no grupo, só se chamar o bot. O bot não lê nem grava nada para essa pessoa.
 - **Resumo do dia**: às 07:00 (horário de Brasília), uma vez por dia, uma mensagem com o que está atrasado, o que vence hoje e os próximos 3 dias, com botões **Feito**. Vai para os grupos onde o bot está; se não houver grupo, vai para o privado de cada pessoa ligada. `/resumo_off` e `/resumo_on` desligam e religam em cada chat. O resumo é montado sem IA, não gasta cota.
+- **Limpeza e rotina da casa** no resumo: depois de "Hoje", as rotinas da casa atrasadas, sem registro ou que vencem hoje, com a última vez ("• Limpeza do banheiro (Banheiro): atrasada há 2 dias, última vez há 5 dias"). Os botões **Feito** dividem o limite de 5 com o resto do resumo. Não há alerta à noite.
+- **`/casa`**: as 8 rotinas da casa mais urgentes (o que não está em dia), com botões **Feito** para as 5 primeiras. Montado sem IA. Para mudar uma frequência, peça ao agente na conversa.
 - **Feito** no resumo marca a tarefa em nome de quem tocou. Se for algo que costuma custar dinheiro (veterinário, conserto, revisão), o bot pergunta quanto custou.
 
 ### Finanças

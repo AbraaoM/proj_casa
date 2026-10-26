@@ -187,6 +187,51 @@ curl -sS "$CASA_URL/api/agent/areas/bulk" \
 
 O slug `geral` é reservado (é a página dos itens sem área). O `slug` é a identidade: repetir o mesmo slug devolve a área existente sem mudar nada. Para renomear, use `PATCH /api/agent/areas/cozinha` com `{ "name": "..." }`. O slug não muda; para trocar, crie outra área e arquive a antiga.
 
+## 8a. Checklist da casa (rotinas)
+
+A tela `/casa` é um checklist no estilo dos de limpeza hospitalar: cada tarefa do cômodo, de quanto em quanto tempo, a última vez, quem fez e o que está mais urgente. Cada cômodo tem uma folha de registro dos últimos 30 dias.
+
+Uma rotina é uma pendência da casa com `interval_days` ou `interval_months`. Não há tabela nova.
+
+**A frequência só muda pela conversa com o agente.** O app não tem tela para editar frequência. A pessoa pede ("troca de toalha a cada 4 dias") e o agente chama `atualizar_item`; `interval_days: null` (e `interval_months: null`) tira a frequência e o item deixa de ser rotina.
+
+Kit sugerido (o ponto de partida aprovado pelo dono; o agente oferece para cômodos sem rotina):
+
+| Cômodo | Tarefa | Categoria | Frequência |
+| --- | --- | --- | --- |
+| Banheiro | Limpeza do banheiro | `cleaning` | 3 dias |
+| Banheiro | Limpeza pesada do banheiro | `deep_clean` | 15 dias |
+| Banheiro | Trocar toalhas | `cleaning` | 3 dias |
+| Quarto | Trocar roupa de cama | `cleaning` | 7 dias |
+| Cozinha | Limpar bancada e fogão | `cleaning` | 1 dia |
+| Cozinha | Limpar a geladeira | `deep_clean` | 30 dias |
+| Cozinha | Trocar filtro de água | `maintenance` | 6 meses |
+| Qualquer cômodo | Aspirar e passar pano | `cleaning` | 7 dias |
+| Ar-condicionado | Limpar filtro do ar-condicionado | `maintenance` | 1 mês |
+
+Criar uma rotina (uma por cômodo e tarefa; `external_key` no formato `rotina:<área>:<tarefa>`):
+
+```bash
+curl -sS "$CASA_URL/api/agent/items" \
+  -H "Authorization: Bearer $AGENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "domain": "house", "area": "banheiro", "category": "cleaning", "title": "Limpeza do banheiro",
+        "interval_days": 3, "last_done_on": "2026-10-21",
+        "external_key": "rotina:banheiro:limpeza_do_banheiro" }'
+```
+
+Sem `due_date`, o vencimento é `last_done_on` + intervalo. Sem `last_done_on`, a rotina aparece como "Sem registro" e vence hoje.
+
+Ler o checklist:
+
+```bash
+curl -sS "$CASA_URL/api/agent/house/routines?area=banheiro" -H "Authorization: Bearer $AGENT_API_KEY"
+```
+
+Filtros: `area`, `status` (`overdue`, `never`, `due_soon`, `ok`), `limit` (1 a 200), `include_kit=true` (traz o kit sugerido). Cada rotina vem com `last_done_on`, `done_by`, `via_agent`, `days_since`, `progress_pct`, `status`, `due_date` e `days_overdue`, da mais urgente para a menos. `due_soon` é 75% ou mais do intervalo já passado.
+
+Não há responsável nem rodízio: o app só registra quem fez.
+
 ## 9. Importe o histórico
 
 O histórico é feito de eventos (`care_events`). Um evento pode estar ligado a uma pendência (`care_item_id`) ou ser avulso: uma consulta, uma pesagem, um conserto que não estava agendado.
@@ -243,8 +288,9 @@ Ferramentas (as mesmas regras das rotas REST):
 | `listar_cadastros` | ids e nomes de cães, família, carros e áreas | não |
 | `listar_itens` | pendências com filtro | não |
 | `historico` | histórico de um cão, carro, pessoa ou área | não |
+| `rotinas_casa` | checklist da casa: última vez, quem fez, status, mais urgente primeiro; `include_kit` traz o kit sugerido | não |
 | `adicionar_item` | nova pendência. No carro, `odometer_km` grava o hodômetro e `due_date` fica em Próximos. Remédio leva `interval_hours` (1x ao dia = 24) e `ends_on` | sim |
-| `atualizar_item` | corrige pendência: status, vencimento, um intervalo, notas | sim |
+| `atualizar_item` | corrige pendência: status, vencimento, um intervalo, notas. É o único jeito de mudar a frequência de uma rotina da casa (`null` tira) | sim |
 | `marcar_feito` | conclui e reagenda; não aceita valor | sim |
 | `registrar_dose` | dose de remédio por hora | sim |
 | `listar_doses` | doses de um item e a próxima | não |

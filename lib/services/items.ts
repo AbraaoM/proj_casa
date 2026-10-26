@@ -9,6 +9,12 @@ import { getAreaByRef } from "@/lib/repositories/areas";
 import { getDog, getFamilyMember, getVehicle } from "@/lib/repositories/subjects";
 import { refreshDoseSchedule, sqlDoseStore } from "@/lib/services/doses";
 import { readSettings } from "@/lib/services/settings";
+import { todayInTimeZone } from "@/lib/domain/dates";
+import { dueAfterEdit, initialRoutineDue, isRoutine } from "@/lib/domain/routine";
+
+async function householdToday(sql: Sql): Promise<string> {
+  return todayInTimeZone((await readSettings(sql)).timezone);
+}
 
 export async function listItems(sql: Sql, query: ItemListQuery): Promise<CareItem[]> {
   return itemsRepo.listItems(sql, query);
@@ -35,9 +41,12 @@ export async function createItem(
 
   await ensureSubject(sql, input);
   const area_id = await resolveArea(sql, input.area_id, input.area_slug);
+  // A new house routine always has a due date: one interval after the last time, or today.
+  const due_date =
+    input.due_date ?? (isRoutine(input) && input.status === "active" ? initialRoutineDue(input, await householdToday(sql)) : null);
 
   try {
-    const item = await itemsRepo.insertItem(sql, { ...input, area_id, area_slug: null });
+    const item = await itemsRepo.insertItem(sql, { ...input, area_id, area_slug: null, due_date });
     return { item, idempotentReplay: false };
   } catch (error) {
     if (input.external_key && isUniqueViolation(error)) {
@@ -84,6 +93,11 @@ export async function updateItem(
   const next: Partial<CreateItemInput> = { ...rest };
   if (area_slug !== undefined || patch.area_id !== undefined) {
     next.area_id = await resolveArea(sql, patch.area_id ?? null, area_slug ?? null);
+  }
+  // A routine whose frequency or last time changed gets its due date recomputed from the last time.
+  if (merged.domain === "house" && patch.due_date === undefined) {
+    const due = dueAfterEdit({ ...current, domain: merged.domain }, patch, await householdToday(sql));
+    if (due !== undefined) next.due_date = due;
   }
 
   const item = await itemsRepo.updateItem(sql, id, next);

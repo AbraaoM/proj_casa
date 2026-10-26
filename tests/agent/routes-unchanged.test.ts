@@ -35,6 +35,7 @@ const EXPECTED = [
   "finance/transactions/[id] GET PATCH",
   "finance/transactions/bulk POST",
   "health GET",
+  "house/routines GET",
   "items GET POST",
   "items/[id] GET PATCH",
   "items/[id]/done POST",

@@ -73,6 +73,14 @@ The app surfaces what needs attention, timelines, and history. It does **not** a
 - Panel input is one-tap buttons only. **Owner-approved exception:** the admin-only bot settings page (`/agentes/bot`) has a small form (AI provider, model, base URL, AI API key, Telegram bot token) plus buttons (save, enable/disable, register webhook, test, rotate webhook secret). Do not add other text-entry forms without the owner's approval.
 - Bot and integration secrets live in the database, encrypted with AES-256-GCM under one master key, `CASA_SECRET_KEY` (32 random bytes, base64). Never return a saved secret to the client: show the last 4 characters only. Log who changed what and when, never the values.
 
+## House routines (the /casa checklist)
+- A routine is a house item (`domain: "house"`) with `interval_days` or `interval_months` and no `interval_hours`. It needs no new table: the checklist reads `care_items` plus the latest non-voided `care_events`.
+- Urgency lives in `lib/domain/routine.ts` (pure, unit-tested): `overdue` (past due), `never` (no record yet), `due_soon` (75% or more of the interval used, `DUE_SOON_SHARE`), `ok`. Most urgent first.
+- **Frequencies change only through an agent.** The owner approved the suggested kit (`lib/domain/routine-kit.ts`) as the starting point and changes it by talking to an agent. Do not add a screen, form or button to edit a frequency. Create with `adicionar_item`, change with `atualizar_item` (`interval_days` / `interval_months`; `null` removes the frequency and the item stops being a routine). Confirm the change in one sentence.
+- Read the checklist with the `rotinas_casa` tool or `GET /api/agent/house/routines` (`area`, `status`, `limit`, `include_kit`).
+- One routine per room and task. Use `routineKey(area, task)` (`rotina:<area>:<slug>`) as the `external_key`, so a repeated setup does not duplicate.
+- The panel records who did each task (one tap, "Feito agora"). There is no assignment or rotation. The app never shows the agent's name: it says "seu agente".
+
 ## Never break the core experience
 The person will use this daily. A broken screen or wrong recommendation creates distrust.
 - Prefer Server Components when possible.

@@ -3,7 +3,10 @@ import { withCaller, type AgentCaller } from "@/lib/agent/actor";
 import { recordActivity } from "@/lib/agent/activity";
 import { AGENT_TOOLS, type ToolContext } from "@/lib/agent/tools";
 import { HISTORY_LIMIT, modelFailureText, runAgentTurn } from "@/lib/bot/agent";
-import { clip, type TelegramClient, type TgMessage, type TgUpdate } from "@/lib/bot/telegram";
+import { DIGEST_MAX_BUTTONS, routineLine } from "@/lib/bot/digest";
+import { listRoutines } from "@/lib/services/routines";
+import { readSettings } from "@/lib/services/settings";
+import { clip, type InlineButton, type TelegramClient, type TgMessage, type TgUpdate } from "@/lib/bot/telegram";
 import type { Sql } from "@/lib/db/client";
 import {
   addMessage, claimUpdate, consumeLinkCode, ensureTelegramKey, findLinkByTelegramUser, linkTelegram,
@@ -29,7 +32,24 @@ export const COPY = {
   digestOn: "Certo, mando o resumo do dia neste chat, de manhã.",
   privateFirst: "Me mande um oi no privado primeiro, para eu poder responder por lá.",
   answeredPrivately: "Te respondi no privado.",
+  houseAllGood: "Tudo em dia na limpeza e rotina da casa.",
+  houseTitle: "Limpeza e rotina da casa, mais urgentes:",
 } as const;
+
+/** How many routines /casa lists. */
+export const HOUSE_COMMAND_LIMIT = 8;
+
+/** /casa: the most urgent routines of the checklist, with one-tap Feito. No AI call. */
+export async function houseChecklistMessage(sql: Sql, today: string): Promise<{ text: string; buttons: InlineButton[][] }> {
+  const settings = await readSettings(sql);
+  const routines = await listRoutines(sql, { area: null, status: null, limit: null, today, timeZone: settings.timezone });
+  const urgent = routines.filter((routine) => routine.state.status !== "ok").slice(0, HOUSE_COMMAND_LIMIT);
+  if (urgent.length === 0) return { text: COPY.houseAllGood, buttons: [] };
+  return {
+    text: [COPY.houseTitle, ...urgent.map(routineLine), "", "Toque em Feito ou me conte o que foi feito."].join("\n"),
+    buttons: urgent.slice(0, DIGEST_MAX_BUTTONS).map((routine) => [{ text: `Feito: ${routine.title}`.slice(0, 60), callback_data: `done:${routine.id}` }]),
+  };
+}
 
 type ChatKind = "private" | "group" | "supergroup";
 
@@ -121,6 +141,17 @@ async function handleText(message: TgMessage, deps: WebhookDeps): Promise<void> 
     const on = command[1]!.toLowerCase() === "resumo_on";
     await setChatDigest(deps.sql, chat.id, on);
     return send(deps, chat.id, on ? COPY.digestOn : COPY.digestOff);
+  }
+
+  if (command && command[1]!.toLowerCase() === "casa") {
+    const { today } = await deps.context();
+    const house = await houseChecklistMessage(deps.sql, today);
+    await deps.telegram.call("sendMessage", {
+      chat_id: chat.id,
+      text: clip(house.text),
+      ...(house.buttons.length > 0 ? { reply_markup: { inline_keyboard: house.buttons } } : {}),
+    });
+    return;
   }
 
   const author = from.first_name ?? link.username;

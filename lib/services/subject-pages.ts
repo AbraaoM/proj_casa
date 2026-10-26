@@ -12,6 +12,11 @@ import { getSubjectHistory, sortActive, type AnySubjectHistory } from "@/lib/ser
 import { fetchWeather } from "@/lib/weather/open-meteo";
 import { cache } from "react";
 import { clockFor, readSettings } from "@/lib/services/settings";
+import { listRoutines, loadSheet, type RoutineView } from "@/lib/services/routines";
+import type { Sheet } from "@/lib/domain/routine";
+
+/** Days of the folha de registro on an area page (the phone shows the newest 7, scrolls to the rest). */
+export const SHEET_DAYS = 30;
 
 export type PageLoad<T> =
   | { status: "unconfigured" | "schema_missing" | "error" | "not_found" }
@@ -80,23 +85,29 @@ export type HouseOverview = {
   groups: Array<{ kind: AreaKind; areas: Array<HistoryOf<"area">> }>;
   general: HouseGeneral;
   outdoor_delay: boolean;
+  /** Every house routine, most urgent first (the checklist). */
+  routines: RoutineView[];
 };
+
+/** An area page: its history, its routines with the folha de registro, and the rain hint. */
+export type AreaDetail = HistoryOf<"area"> & { outdoor_delay: boolean; routines: RoutineView[]; sheet: Sheet };
 
 const KIND_ORDER: AreaKind[] = ["room", "outdoor", "system"];
 
 export async function loadHouseOverview(): Promise<PageLoad<HouseOverview>> {
   return withDatabase(async (sql, today, settings) => {
     const areas = await listAreas(sql, false);
-    const [histories, general, weather] = await Promise.all([
+    const [histories, general, weather, routines] = await Promise.all([
       Promise.all(areas.map((area) => getSubjectHistory(sql, "area", area.id, today) as Promise<HistoryOf<"area">>)),
       houseGeneral(sql, today),
       fetchWeather(settings),
+      listRoutines(sql, { area: null, status: null, limit: null, today, timeZone: settings.timezone }),
     ]);
     const groups = KIND_ORDER.map((kind) => ({
       kind,
       areas: histories.filter((history) => history.subject.kind === kind),
     })).filter((group) => group.areas.length > 0);
-    return { groups, general, outdoor_delay: Boolean(weather?.outdoor_delay) };
+    return { groups, general, outdoor_delay: Boolean(weather?.outdoor_delay), routines };
   });
 }
 
@@ -105,12 +116,24 @@ export async function loadHouseGeneral(): Promise<PageLoad<HouseGeneral>> {
 }
 
 /** An area page plus whether rain should hold outdoor work today. */
-export async function loadAreaDetail(ref: string): Promise<PageLoad<HistoryOf<"area"> & { outdoor_delay: boolean }>> {
+export async function loadAreaDetail(ref: string): Promise<PageLoad<AreaDetail>> {
   if (!/^[a-z0-9_]{1,40}$/.test(ref) && !isUuid(ref)) return { status: "not_found" };
   return withDatabase(async (sql, today, settings) => {
     const history = (await getSubjectHistory(sql, "area", ref, today)) as HistoryOf<"area">;
-    const weather = history.subject.kind === "outdoor" ? await fetchWeather(settings) : null;
-    return { ...history, outdoor_delay: Boolean(weather?.outdoor_delay) };
+    const [weather, routines] = await Promise.all([
+      history.subject.kind === "outdoor" ? fetchWeather(settings) : Promise.resolve(null),
+      listRoutines(sql, { area: history.subject.id, status: null, limit: null, today, timeZone: settings.timezone }),
+    ]);
+    const sheet = await loadSheet(sql, { routines, today, days: SHEET_DAYS, timeZone: settings.timezone });
+    const ids = new Set(routines.map((routine) => routine.id));
+    return {
+      ...history,
+      // Routines live in the checklist; "Próximos" keeps the one-off tasks.
+      active_items: history.active_items.filter((item) => !ids.has(item.id)),
+      outdoor_delay: Boolean(weather?.outdoor_delay),
+      routines,
+      sheet,
+    };
   });
 }
 
