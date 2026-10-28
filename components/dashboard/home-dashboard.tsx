@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Car, ChevronRight, CloudRain, Dog, House, Users, Wallet, type LucideIcon } from "lucide-react";
+import { CalendarDays, Car, ChevronRight, CloudRain, Dog, House, Users, Wallet, type LucideIcon } from "lucide-react";
 import { AttentionMark, EmptyNote } from "@/components/ui/attention-mark";
 import { attentionPhrase } from "@/lib/domain/attention";
 import { DOMAINS, type Domain } from "@/lib/domain/types";
@@ -9,6 +9,7 @@ import { monthLabel } from "@/lib/domain/history";
 import type { DashboardData, DashboardFinance } from "@/lib/services/dashboard";
 import { formatMoney } from "@/lib/ui/format";
 import { markerClass, priorityWord } from "@/lib/ui/attention";
+import { agendaTimeLabel } from "@/lib/ui/agenda";
 
 const LABELS: Record<Domain, string> = {
   dog: "Cães",
@@ -60,6 +61,26 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
         {notice(data) ? <p className="mt-3 max-w-md text-base text-ink-muted">{notice(data)}</p> : null}
         {place ? <p className="mt-4 text-sm text-ink-muted">{place}</p> : null}
       </section>
+
+      {ready && ready.agenda && ready.agenda.events.length > 0 ? (
+        <section className="mt-10 max-w-xl">
+          <h2 className="text-lg">
+            <Link href="/agenda" className="inline-flex min-h-11 items-center gap-2 underline-offset-4 hover:underline">
+              <CalendarDays aria-hidden className="h-5 w-5 text-ink-muted" strokeWidth={1.75} />
+              Agenda
+            </Link>
+          </h2>
+          <ul className="mt-2">
+            {ready.agenda.events.slice(0, 3).map((event) => (
+              <li key={`${event.owner}-${event.id}`} className="border-b border-line py-3 text-sm dark:border-line-dark">
+                <span className="text-ink-muted">{agendaTimeLabel(event, ready.settings.timezone)}</span>
+                {" · "}
+                {event.title}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-6">
         {DOMAINS.map((domain) => {

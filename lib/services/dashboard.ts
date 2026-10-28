@@ -9,6 +9,8 @@ import { listBills } from "@/lib/repositories/finance";
 import { listAttention } from "@/lib/services/attention";
 import { getBudgetView } from "@/lib/services/finance/budgets";
 import { clockFor, fallbackSettings, readSettings } from "@/lib/services/settings";
+import type { AgendaSnapshot } from "@/lib/services/google-calendar";
+import { listHouseholdAgenda } from "@/lib/services/google-calendar";
 import { fetchWeather, type WeatherSnapshot } from "@/lib/weather/open-meteo";
 
 export type DashboardData =
@@ -36,7 +38,8 @@ export type DashboardData =
       summary: AttentionSummary;
       /** Active subjects per domain, for the shortcuts under each section. */
       subjects: Partial<Record<Domain, SubjectLink[]>>;
-      /** null when finance is not set up yet (or 005 is missing). */
+      /** null when nobody has connected Google Agenda, or the agenda could not be read. */
+      agenda: AgendaSnapshot | null;
       finance: DashboardFinance | null;
     };
 
@@ -65,13 +68,14 @@ async function loadFromDatabase(sql: Sql): Promise<DashboardData> {
   try {
     const settings = await readSettings(sql);
     const today = todayInTimeZone(settings.timezone);
-    const [attention, weather, subjects, finance] = await Promise.all([
+    const [attention, weather, subjects, finance, agenda] = await Promise.all([
       listAttention(sql, { today, withinDays: 14, domain: null, clock: clockFor(settings) }),
       fetchWeather(settings),
       loadSubjects(sql),
       loadFinance(sql, today),
+      loadAgenda(sql, today, settings.timezone),
     ]);
-    return { status: "ready", settings, weather, today, ...attention, subjects, finance };
+    return { status: "ready", settings, weather, today, ...attention, subjects, finance, agenda };
   } catch (error) {
     const weather = await fetchWeather(fallback);
     if (isMissingSchema(error)) {
@@ -79,6 +83,17 @@ async function loadFromDatabase(sql: Sql): Promise<DashboardData> {
     }
     console.error(error);
     return { status: "error", settings: { ...fallback, ...DEFAULT_LOCATION }, weather };
+  }
+}
+
+/** The next two weeks of Google Agenda. Never breaks the dashboard. */
+async function loadAgenda(sql: Sql, today: string, timeZone: string): Promise<AgendaSnapshot | null> {
+  try {
+    const snapshot = await listHouseholdAgenda(sql, { today, timeZone, withinDays: 14 });
+    return snapshot.connections === 0 ? null : snapshot;
+  } catch (error) {
+    if (!isMissingSchema(error)) console.error("agenda snapshot failed");
+    return null;
   }
 }
 
