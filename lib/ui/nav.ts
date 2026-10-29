@@ -1,6 +1,6 @@
 /** Where each page lives in the navigation. Pure, so it is tested without a browser. */
 
-export type NavKey = "painel" | "familia" | "casa" | "financas" | "caes" | "carros" | "agentes" | "usuarios" | "mais";
+export type NavKey = "painel" | "familia" | "casa" | "financas" | "caes" | "carros" | "agenda" | "agentes" | "usuarios" | "mais";
 
 export type NavEntry = { key: NavKey; href: string; label: string };
 
@@ -12,6 +12,7 @@ export const SECTORS: NavEntry[] = [
   { key: "financas", href: "/financas", label: "Finanças" },
   { key: "caes", href: "/caes", label: "Cães" },
   { key: "carros", href: "/carros", label: "Carros" },
+  { key: "agenda", href: "/agenda", label: "Agenda" },
 ];
 
 /** Account links at the bottom of the sidebar and on /mais. */

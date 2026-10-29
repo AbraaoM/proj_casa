@@ -9,7 +9,7 @@ describe("proxy decision", () => {
   });
 
   it("still sends the private pages to /login without a session", () => {
-    for (const path of ["/familia", "/financas/contas", "/mais", "/agentes", "/usuarios", "/caes/x"]) {
+    for (const path of ["/familia", "/financas/contas", "/mais", "/agentes", "/agenda", "/usuarios", "/caes/x"]) {
       expect(proxyDecision(path, false)).toBe("login");
       expect(proxyDecision(path, true)).toBe("pass");
     }

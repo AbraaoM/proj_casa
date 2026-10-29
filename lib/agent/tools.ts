@@ -10,7 +10,7 @@
  */
 import { attribution } from "@/lib/agent/actor";
 import type { Sql } from "@/lib/db/client";
-import { isIsoDate, isUuid } from "@/lib/domain/dates";
+import { parseAgendaCreate, parseWithinDays } from "@/lib/domain/calendar";
 import { parseDoseBody, resolveGivenAt } from "@/lib/domain/doses";
 import { parseAreaCreate, parseAreaPatch } from "@/lib/domain/areas";
 import { parseDogCreate, parseDogPatch, parseFamilyCreate, parseFamilyPatch, parseSettingsPatch, parseVehicleCreate, parseVehiclePatch } from "@/lib/domain/entities";
@@ -36,6 +36,8 @@ import { compactRoutine, listRoutines } from "@/lib/services/routines";
 import { ROUTINE_KIT } from "@/lib/domain/routine-kit";
 import { patchSettings, readSettings } from "@/lib/services/settings";
 import { createDog, createFamily, createVehicle, listDogs, listFamily, listVehicles, updateDog, updateFamily, updateVehicle } from "@/lib/services/subjects";
+import { isIsoDate, isUuid } from "@/lib/domain/dates";
+import { createAgendaEvent, listHouseholdAgenda } from "@/lib/services/google-calendar";
 import { fetchWeather } from "@/lib/weather/open-meteo";
 
 export type ToolContext = { sql: Sql; today: string; clock: Clock };
@@ -845,6 +847,47 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
       const raw = only(args, ["city", "region", "country", "latitude", "longitude", "timezone"]);
       const settings = Object.keys(raw).length === 0 ? await readSettings(sql) : await patchSettings(sql, must(parseSettingsPatch(raw), "settings"));
       return { city: settings.city, region: settings.region, country: settings.country, latitude: settings.latitude, longitude: settings.longitude, timezone: settings.timezone };
+    },
+  },
+  {
+    name: "agenda_proximos",
+    title: "Agenda",
+    description: "Lista os próximos compromissos do Google Agenda das contas já conectadas. Não conecta ninguém.",
+    inputSchema: {
+      type: "object",
+      properties: { within_days: int("How many days ahead, from 1 to 30. Default 14.") },
+      additionalProperties: false,
+    },
+    writes: false,
+    async run(args, { sql, today, clock }) {
+      const raw = only(args, ["within_days"]);
+      const withinDays = must(parseWithinDays(raw.within_days), "agenda");
+      return listHouseholdAgenda(sql, { today, timeZone: clock.timeZone, withinDays });
+    },
+  },
+  {
+    name: "agenda_criar",
+    title: "Criar na agenda",
+    description: "Cria um compromisso na Google Agenda de quem está falando, só com o que a pessoa pediu. Data sem hora é o dia inteiro.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: str("Event title."),
+        starts_at: str("AAAA-MM-DD for all day, or a date-time. Without a zone, the house time zone is used."),
+        ends_at: str("Optional end. For an all-day event, the last day, inclusive."),
+        description: str("Optional details."),
+        location: str("Optional place."),
+        external_key: externalKey,
+      },
+      required: ["title", "starts_at"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, clock }) {
+      const raw = only(args, ["title", "starts_at", "ends_at", "description", "location", "external_key"]);
+      const draft = must(parseAgendaCreate(raw, clock.timeZone), "agenda");
+      const created = await createAgendaEvent(sql, draft, clock.timeZone);
+      return { event: created.event, idempotent_replay: created.idempotentReplay };
     },
   },
 ];
