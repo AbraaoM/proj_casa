@@ -3,6 +3,8 @@ export type ErrorCode =
   | "not_found"
   | "database_unavailable"
   | "agent_not_configured"
+  | "agenda_not_connected"
+  | "agenda_unavailable"
   | "internal_error";
 
 export type FieldError = { field: string; message: string };

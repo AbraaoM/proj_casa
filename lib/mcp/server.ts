@@ -125,7 +125,11 @@ async function callTool(params: Record<string, unknown>, caller: AgentCaller, de
     return { content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: { ok: true, data }, isError: false };
   } catch (error) {
     const body = error instanceof DatabaseUnavailableError ? { code: "database_unavailable", message: "DATABASE_URL is not set." } : errorBody(error);
-    status = body.code === "validation_error" ? 400 : body.code === "not_found" ? 404 : body.code === "database_unavailable" ? 503 : 500;
+    status = body.code === "validation_error" ? 400
+      : body.code === "not_found" ? 404
+      : body.code === "agenda_not_connected" ? 409
+      : body.code === "agenda_unavailable" || body.code === "database_unavailable" ? 503
+      : 500;
     if (status === 500) console.error(error);
     return toolError(body);
   } finally {

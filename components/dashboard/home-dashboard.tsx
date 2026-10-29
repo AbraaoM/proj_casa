@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Car, ChevronRight, CloudRain, Dog, House, Users, Wallet, type LucideIcon } from "lucide-react";
+import { CalendarDays, Car, ChevronRight, CloudRain, Dog, House, Users, Wallet, type LucideIcon } from "lucide-react";
 import { AttentionMark, EmptyNote } from "@/components/ui/attention-mark";
 import { attentionPhrase } from "@/lib/domain/attention";
 import { DOMAINS, type Domain } from "@/lib/domain/types";
@@ -10,6 +10,7 @@ import type { DashboardData, DashboardFinance } from "@/lib/services/dashboard";
 import { ListSearch } from "@/components/ui/list-search";
 import { categoryLabel, formatMoney } from "@/lib/ui/format";
 import { markerClass, priorityWord } from "@/lib/ui/attention";
+import { agendaTimeLabel } from "@/lib/ui/agenda";
 import { matchesSearch } from "@/lib/ui/search";
 
 const LABELS: Record<Domain, string> = {
@@ -63,8 +64,31 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
         {place ? <p className="mt-4 text-sm text-ink-muted">{place}</p> : null}
       </section>
 
-      {ready && (ready.items.length > 0 || DOMAINS.some((domain) => (ready.subjects[domain]?.length ?? 0) > 0)) ? (
+      {ready && (ready.items.length > 0 || DOMAINS.some((domain) => (ready.subjects[domain]?.length ?? 0) > 0) || (ready.agenda?.events.length ?? 0) > 0) ? (
         <ListSearch action="/" query={query} placeholder="Buscar pendência" />
+      ) : null}
+
+      {ready && ready.agenda && ready.agenda.events.some((event) => matchesSearch(query, [event.title, event.owner, event.location])) ? (
+        <section className="mt-10 max-w-xl">
+          <h2 className="text-lg">
+            <Link href="/agenda" className="inline-flex min-h-11 items-center gap-2 underline-offset-4 hover:underline">
+              <CalendarDays aria-hidden className="h-5 w-5 text-ink-muted" strokeWidth={1.75} />
+              Agenda
+            </Link>
+          </h2>
+          <ul className="mt-2">
+            {ready.agenda.events
+              .filter((event) => matchesSearch(query, [event.title, event.owner, event.location]))
+              .slice(0, 3)
+              .map((event) => (
+              <li key={`${event.owner}-${event.id}`} className="border-b border-line py-3 text-sm dark:border-line-dark">
+                <span className="text-ink-muted">{agendaTimeLabel(event, ready.settings.timezone)}</span>
+                {" · "}
+                {event.title}
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-6">
@@ -157,7 +181,7 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
           );
         })}
       </div>
-      {query && ready && !DOMAINS.some((domain) => domainVisible(data, domain, query)) ? (
+      {query && ready && !DOMAINS.some((domain) => domainVisible(data, domain, query)) && !(ready.agenda?.events.some((event) => matchesSearch(query, [event.title, event.owner, event.location])) ?? false) ? (
         <p className="mt-8 text-sm text-ink-muted">Nada com essa busca.</p>
       ) : null}
     </main>

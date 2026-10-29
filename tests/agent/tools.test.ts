@@ -8,7 +8,7 @@ const CATALOG = [
   "registrar_evento", "anular_evento", "registrar_custo",
   "cadastrar", "clima",
   "resumo_financeiro", "listar_financas", "criar_conta", "conta_a_pagar", "pagar_conta",
-  "definir_orcamento", "conferir_conta", "ajustar_casa",
+  "definir_orcamento", "conferir_conta", "ajustar_casa", "agenda_proximos", "agenda_criar",
 ] as const;
 
 /** Money fields only where the person stated the number. No free-floating transaction. */
@@ -90,6 +90,15 @@ describe("agent tool catalog", () => {
 
   test("cadastrar without a name fails before the database", async () => {
     await expect(tool("cadastrar").run({ kind: "dog" }, context)).rejects.toMatchObject({ code: "validation_error" });
+  });
+
+  test("agenda tools reject a bad request before the database", async () => {
+    await expect(tool("agenda_proximos").run({ within_days: 0 }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("agenda_proximos").run({ extra: true }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("agenda_criar").run({ title: "Dentista" }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("agenda_criar").run({ title: "Dentista", starts_at: "amanhã" }, context)).rejects.toMatchObject({ code: "validation_error" });
+    expect(tool("agenda_proximos").writes).toBe(false);
+    expect(tool("agenda_criar").writes).toBe(true);
   });
 
   test("tasks that usually cost money ask for the cost; others do not", () => {

@@ -20,4 +20,5 @@ export const PLAYBOOK = [
   "Tarefa ao ar livre: consulte clima antes de sugerir o dia.",
   "Checklist da casa: rotina é item domain house com area e interval_days ou interval_months. rotinas_casa mostra a última vez, quem fez e o que está mais atrasado. Cômodo sem rotina: proponha o kit sugerido (rotinas_casa com include_kit) e crie só o que a pessoa aceitar, com external_key rotina:<area>:<tarefa>.",
   "A frequência de uma rotina só muda pela conversa: criar, mudar (atualizar_item com novo intervalo), remover (interval_days: null) ou apagar (status cancelled) quando a pessoa pedir. O app não tem tela para isso. Quem fez fica registrado sozinho; não existe escala nem responsável.",
+  "Google Agenda: agenda_proximos lista os próximos dias das contas já conectadas. agenda_criar grava na agenda de quem está falando, só quando a pessoa pedir. Uma data sem hora é o dia inteiro. Se voltar agenda_not_connected, diga para tocar em Conectar Google Agenda em Agentes. Não invente horário.",
 ].join("\n");

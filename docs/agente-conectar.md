@@ -9,7 +9,7 @@ Há dois jeitos de ligar um agente, com a mesma chave:
 - **REST** (`/api/agent/...`): para um agente que roda na mesma máquina ou que chama HTTP direto. Seções 1 a 10.
 - **MCP** (`/api/mcp`): para um assistente que aceita conector MCP remoto, como o Claude no plano Free. Seção 11.
 
-Para conversar com o agente no Telegram (privado e grupo da família), veja `docs/agente-telegram.md`.
+Para conversar com o agente no Telegram (privado e grupo da família), veja `docs/agente-telegram.md`. Para o Google Agenda, veja `docs/agente-agenda.md`.
 
 A tabela completa de rotas está no `README.md`. Este arquivo cobre só a ligação.
 

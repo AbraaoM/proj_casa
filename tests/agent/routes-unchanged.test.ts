@@ -9,6 +9,8 @@ const EXPECTED = [
   "areas/[id]/history GET",
   "areas/bulk POST",
   "attention GET",
+  "calendar GET",
+  "calendar/events POST",
   "dogs GET POST",
   "dogs/[id] GET PATCH",
   "dogs/[id]/history GET",
