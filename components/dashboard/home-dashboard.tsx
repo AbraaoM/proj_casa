@@ -7,8 +7,10 @@ import { SuggestedBills } from "@/components/finance/suggested-bills";
 import { ItemActions } from "@/components/one-tap/item-actions";
 import { monthLabel } from "@/lib/domain/history";
 import type { DashboardData, DashboardFinance } from "@/lib/services/dashboard";
-import { formatMoney } from "@/lib/ui/format";
+import { ListSearch } from "@/components/ui/list-search";
+import { categoryLabel, formatMoney } from "@/lib/ui/format";
 import { markerClass, priorityWord } from "@/lib/ui/attention";
+import { matchesSearch } from "@/lib/ui/search";
 
 const LABELS: Record<Domain, string> = {
   dog: "Cães",
@@ -29,7 +31,7 @@ const SECTOR_HREF: Partial<Record<Domain, string>> = {
   finance: "/financas",
 };
 
-export function HomeDashboard({ data }: { data: DashboardData }) {
+export function HomeDashboard({ data, query = "" }: { data: DashboardData; query?: string }) {
   const ready = data.status === "ready" ? data : null;
   const attentionCount = ready ? ready.items.length : 0;
   const overdue = ready?.summary.overdue ?? 0;
@@ -61,12 +63,21 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
         {place ? <p className="mt-4 text-sm text-ink-muted">{place}</p> : null}
       </section>
 
+      {ready && (ready.items.length > 0 || DOMAINS.some((domain) => (ready.subjects[domain]?.length ?? 0) > 0)) ? (
+        <ListSearch action="/" query={query} placeholder="Buscar pendência" />
+      ) : null}
+
       <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-6">
-        {DOMAINS.map((domain) => {
-          const items = ready?.items.filter((item) => item.domain === domain) ?? [];
-          const count = ready?.summary.by_domain[domain].total_active ?? 0;
+        {DOMAINS.filter((domain) => domainVisible(data, domain, query)).map((domain) => {
+          const items = (ready?.items.filter((item) => item.domain === domain) ?? []).filter((item) =>
+            matchesSearch(query, [item.title, item.subject_name, item.notes, categoryLabel(item.category)]),
+          );
+          const count = query ? items.length : ready?.summary.by_domain[domain].total_active ?? 0;
           const href = SECTOR_HREF[domain];
-          const shortcuts = ready?.subjects[domain] ?? [];
+          const shortcuts = (ready?.subjects[domain] ?? []).filter((subject) => matchesSearch(query, [subject.name]));
+          const suggested = (domain === "finance" ? ready?.finance?.suggested ?? [] : []).filter((bill) =>
+            matchesSearch(query, [bill.name, bill.category_name, bill.notes]),
+          );
           const Icon = ICONS[domain];
           const label = (
             <>
@@ -115,11 +126,11 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
                 </p>
               ) : null}
               {items.length === 0 ? (
-                ready ? (
-                <EmptyNote>Nada pendente</EmptyNote>
-              ) : (
-                <p className="mt-4 text-sm text-ink-muted">Sem dados</p>
-              )
+                !ready ? (
+                  <p className="mt-4 text-sm text-ink-muted">Sem dados</p>
+                ) : query ? null : (
+                  <EmptyNote>Nada pendente</EmptyNote>
+                )
               ) : (
                 <ul className="mt-4 space-y-4">
                   {items.map((item) => (
@@ -141,13 +152,27 @@ export function HomeDashboard({ data }: { data: DashboardData }) {
                   ))}
                 </ul>
               )}
-              {domain === "finance" && ready?.finance ? <SuggestedBills bills={ready.finance.suggested} compact /> : null}
+              {domain === "finance" && ready?.finance ? <SuggestedBills bills={suggested} compact /> : null}
             </section>
           );
         })}
       </div>
+      {query && ready && !DOMAINS.some((domain) => domainVisible(data, domain, query)) ? (
+        <p className="mt-8 text-sm text-ink-muted">Nada com essa busca.</p>
+      ) : null}
     </main>
   );
+}
+
+function domainVisible(data: DashboardData, domain: Domain, query: string): boolean {
+  if (!query || data.status !== "ready") return true;
+  const items = data.items.filter(
+    (item) => item.domain === domain && matchesSearch(query, [item.title, item.subject_name, item.notes, categoryLabel(item.category)]),
+  );
+  const shortcuts = (data.subjects[domain] ?? []).filter((subject) => matchesSearch(query, [subject.name]));
+  const suggested =
+    domain === "finance" ? (data.finance?.suggested ?? []).filter((bill) => matchesSearch(query, [bill.name, bill.category_name, bill.notes])) : [];
+  return items.length + shortcuts.length + suggested.length > 0;
 }
 
 function SectorCount({ ready, count }: { ready: boolean; count: number }) {

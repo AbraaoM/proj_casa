@@ -3,14 +3,15 @@ import { Stat } from "@/components/history/stat";
 import { SubjectDetail } from "@/components/history/subject-detail";
 import { loadHouseGeneral } from "@/lib/services/subject-pages";
 import { daysAgoPhrase, formatMoney } from "@/lib/ui/format";
+import { searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
-type Props = { searchParams: Promise<{ categoria?: string }> };
+type Props = { searchParams: Promise<{ categoria?: string; q?: string }> };
 
 /** House items and events without an area. */
 export default async function HouseGeneralPage({ searchParams }: Props) {
-  const { categoria } = await searchParams;
+  const { categoria, q } = await searchParams;
   const page = await loadHouseGeneral();
   if (page.status !== "ready") return <PageNotice status={page.status} backHref="/casa" />;
   const { today, data } = page;
@@ -30,6 +31,7 @@ export default async function HouseGeneralPage({ searchParams }: Props) {
       events={data.events}
       basePath="/casa/geral"
       category={categoria ?? null}
+      query={searchQuery(q)}
     />
   );
 }

@@ -8,11 +8,11 @@ O agente usa uma chave gerada em Agentes (cada chave é de uma pessoa e tem o no
 
 ## Telas
 
-Só leitura. `/` mostra o que pede atenção. `/caes`, `/carros`, `/familia` e `/casa` listam cada cão, veículo, pessoa e área; a página de cada um (`/caes/:id`, `/carros/:id`, `/familia/:id`, `/casa/:slug`, `/casa/geral`) traz os destaques, os próximos e o histórico por mês, com filtro `?categoria=`.
+Só leitura. `/` mostra o que pede atenção. `/caes`, `/carros`, `/familia` e `/casa` listam cada cão, veículo, pessoa e área; a página de cada um (`/caes/:id`, `/carros/:id`, `/familia/:id`, `/casa/:slug`, `/casa/geral`) traz os destaques, os próximos e o histórico por mês, com filtro `?categoria=`. Em qualquer dessas listas, e também em lançamentos, contas e contas a pagar, `?q=` busca dentro do que já está na tela (sem acento, cada palavra). A busca não grava nada.
 
 `/financas?mes=AAAA-MM` mostra o mês: saldo de hoje, resultado, contas a pagar, orçamento e para onde foi o dinheiro. `/financas/lancamentos` lista os lançamentos com filtros (mês, tipo, conta, categoria, `origem=dog:<id>`); `/financas/contas` e `/financas/contas/:slug` mostram saldos e o saldo informado. `/financas/contas-a-pagar` lista as contas que se repetem por vencimento, com os últimos pagamentos; `/financas/orcamento` compara orçado e realizado por categoria e filhas, com os últimos 6 meses. A página do cartão mostra a fatura aberta e as próximas parcelas. As páginas de cão, carro e área levam a "Ver em Finanças".
 
-O painel só escreve por botões de um toque: **Paguei**, **Dose dada**, **Feito**, **+1 dia**, **Ignorar** (pula para o próximo ciclo) e Confirmar/Dispensar de conta sugerida. Não há formulário fora do login, da administração e da configuração do bot (`/agentes/bot`, só a conta master, exceção aprovada pelo dono). Cada toque é idempotente e mostra **Desfazer** por 5 s; desfazer anula o registro, não apaga. O normal continua sendo o dono pedir ao agente no chat. Detalhes para o agente: `docs/agente-conectar.md`.
+O painel só escreve por botões de um toque: **Paguei**, **Dose dada**, **Feito**, **+1 dia**, **Ignorar** (pula para o próximo ciclo) e Confirmar/Dispensar de conta sugerida. O campo **Buscar** nas listas só filtra (`?q=`). Não há outro formulário fora do login, da administração e da configuração do bot (`/agentes/bot`, só a conta master, exceção aprovada pelo dono). Cada toque é idempotente e mostra **Desfazer** por 5 s; desfazer anula o registro, não apaga. O normal continua sendo o dono pedir ao agente no chat. Detalhes para o agente: `docs/agente-conectar.md`.
 
 ## Stack
 

@@ -5,13 +5,17 @@ import { Stat } from "@/components/history/stat";
 import { loadAccountsPage } from "@/lib/services/finance-pages";
 import { ACCOUNT_KIND_LABELS } from "@/lib/ui/finance";
 import { formatMoney } from "@/lib/ui/format";
+import { ListSearch } from "@/components/ui/list-search";
+import { matchesSearch, searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountsPage() {
+export default async function AccountsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const query = searchQuery((await searchParams).q);
   const page = await loadAccountsPage();
   if (page.status !== "ready") return <PageNotice status={page.status} backHref="/financas" />;
   const { accounts, net_worth } = page.data;
+  const shown = accounts.filter((account) => matchesSearch(query, [account.name, ACCOUNT_KIND_LABELS[account.kind], account.notes]));
 
   return (
     <FinancePage tab="contas" title="Contas">
@@ -20,12 +24,13 @@ export default async function AccountsPage() {
         <Stat label="Em contas" value={formatMoney(net_worth.assets_cents)} />
         <Stat label="Dívidas" value={formatMoney(net_worth.liabilities_cents)} hint="cartões e empréstimos" />
       </div>
+      {accounts.length > 0 ? <ListSearch action="/financas/contas" query={query} placeholder="Buscar conta" /> : null}
 
-      {accounts.length === 0 ? (
-        <p className="mt-10 text-sm text-ink-muted">Nenhuma conta ainda. Conte ao seu agente suas contas e saldos, e ele cadastra.</p>
+      {shown.length === 0 ? (
+        <p className="mt-10 text-sm text-ink-muted">{query ? "Nada com essa busca." : "Nenhuma conta ainda. Conte ao seu agente suas contas e saldos, e ele cadastra."}</p>
       ) : (
         <ul className="mt-10 grid grid-cols-1 gap-x-16 md:grid-cols-2">
-          {accounts.map((account) => (
+          {shown.map((account) => (
             <li key={account.id} className="border-t border-line dark:border-line-dark">
               <Link
                 href={`/financas/contas/${account.slug}`}

@@ -9,6 +9,8 @@ import type { RoutineView } from "@/lib/services/routines";
 import { loadHouseOverview } from "@/lib/services/subject-pages";
 import { daysAgoPhrase } from "@/lib/ui/format";
 import { AREA_KIND_LABELS, lastCleaning, RAIN_NOTICE } from "@/lib/ui/house";
+import { ListSearch } from "@/components/ui/list-search";
+import { matchesSearch, searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
@@ -36,17 +38,20 @@ function blocksOf(routines: RoutineView[], order: Array<{ id: string; slug: stri
   return blocks;
 }
 
-export default async function HousePage() {
+export default async function HousePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const query = searchQuery((await searchParams).q);
   const page = await loadHouseOverview();
   if (page.status !== "ready") return <PageNotice status={page.status} />;
   const { today, data } = page;
   const { groups, general, outdoor_delay, routines } = data;
   const hasAreas = groups.length > 0;
   const routineIds = new Set(routines.map((routine) => routine.id));
-  const urgent = routines.filter((routine) => routine.state.status !== "ok").slice(0, URGENT_LIMIT);
-  const blocks = blocksOf(routines, groups.flatMap((group) => group.areas.map((area) => area.subject)));
+  const visibleRoutines = routines.filter((routine) => matchesSearch(query, [routine.title, routine.area_name]));
+  const urgent = visibleRoutines.filter((routine) => routine.state.status !== "ok").slice(0, URGENT_LIMIT);
+  const blocks = blocksOf(visibleRoutines, groups.flatMap((group) => group.areas.map((area) => area.subject)));
   const pending = (items: typeof general.active_items) => items.filter((item) => !routineIds.has(item.id));
   const generalPending = pending(general.active_items);
+  const searchable = routines.length > 0 || groups.some((group) => group.areas.length > 0);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-8 md:max-w-5xl md:px-10 md:py-12">
@@ -55,7 +60,8 @@ export default async function HousePage() {
       <p className="mt-3 max-w-md text-base text-ink-muted">
         O checklist da casa: quando cada tarefa foi feita, por quem, e o que está mais urgente.
       </p>
-      {routines.length > 0 ? <p className="mt-2 text-sm text-ink-faint">{statusSummary(routines)}</p> : null}
+      {routines.length > 0 ? <p className="mt-2 text-sm text-ink-faint">{statusSummary(query ? visibleRoutines : routines)}</p> : null}
+      {searchable ? <ListSearch action="/casa" query={query} placeholder="Buscar tarefa ou área" /> : null}
 
       {routines.length === 0 ? (
         <p className="mt-8 max-w-md border-l-2 border-accent pl-3 text-sm text-ink-muted">
@@ -68,7 +74,7 @@ export default async function HousePage() {
             <p className="text-sm text-ink-faint">{urgent.length}</p>
           </div>
           <div className="md:max-w-2xl">
-            <RoutineList routines={urgent} showArea empty="Tudo em dia. Nada pedindo limpeza agora." />
+            <RoutineList routines={urgent} showArea empty={query ? "Nada com essa busca." : "Tudo em dia. Nada pedindo limpeza agora."} />
           </div>
         </section>
       )}
@@ -100,53 +106,61 @@ export default async function HousePage() {
         </section>
       ) : null}
 
-      {!hasAreas ? (
+      {!hasAreas && !query ? (
         <p className="mt-8 max-w-md text-sm text-ink-muted">Nenhuma área cadastrada ainda. O seu agente cria as áreas; até lá, tudo aparece em Geral.</p>
       ) : null}
 
-      {groups.map((group) => (
-        <section key={group.kind} className="mt-14" aria-labelledby={`grupo-${group.kind}`}>
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 id={`grupo-${group.kind}`} className="text-xs uppercase tracking-wider text-ink-muted">
-              {AREA_KIND_LABELS[group.kind]}
-            </h2>
-            <p className="text-sm text-ink-faint">{group.areas.length}</p>
-          </div>
-          {group.kind === "outdoor" && outdoor_delay ? (
-            <p className="mt-3 border-l-2 border-accent pl-3 text-sm text-ink-muted">{RAIN_NOTICE}</p>
-          ) : null}
-          <ul className="mt-6 grid gap-8 sm:grid-cols-2 md:grid-cols-3 md:gap-x-12 md:gap-y-10">
-            {group.areas.map(({ subject: area, active_items, summary }) => {
-              const others = pending(active_items);
-              return (
-                <SubjectCard
-                  key={area.id}
-                  compact
-                  href={`/casa/${area.slug}`}
-                  title={area.name}
-                  subtitle={others.length > 1 ? `${others.length} pendências` : null}
-                  next={others[0] ?? null}
-                  lines={lines(summary, today)}
-                />
-              );
-            })}
+      {groups.map((group) => {
+        const areas = group.areas.filter(({ subject: area, active_items, summary }) =>
+          matchesSearch(query, [area.name, AREA_KIND_LABELS[group.kind], pending(active_items)[0]?.title ?? null, ...lines(summary, today)]),
+        );
+        if (areas.length === 0) return null;
+        return (
+          <section key={group.kind} className="mt-14" aria-labelledby={`grupo-${group.kind}`}>
+            <div className="flex items-baseline justify-between gap-4">
+              <h2 id={`grupo-${group.kind}`} className="text-xs uppercase tracking-wider text-ink-muted">
+                {AREA_KIND_LABELS[group.kind]}
+              </h2>
+              <p className="text-sm text-ink-faint">{areas.length}</p>
+            </div>
+            {group.kind === "outdoor" && outdoor_delay ? (
+              <p className="mt-3 border-l-2 border-accent pl-3 text-sm text-ink-muted">{RAIN_NOTICE}</p>
+            ) : null}
+            <ul className="mt-6 grid gap-8 sm:grid-cols-2 md:grid-cols-3 md:gap-x-12 md:gap-y-10">
+              {areas.map(({ subject: area, active_items, summary }) => {
+                const others = pending(active_items);
+                return (
+                  <SubjectCard
+                    key={area.id}
+                    compact
+                    href={`/casa/${area.slug}`}
+                    title={area.name}
+                    subtitle={others.length > 1 ? `${others.length} pendências` : null}
+                    next={others[0] ?? null}
+                    lines={lines(summary, today)}
+                  />
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
+
+      {matchesSearch(query, ["Geral", "Sem área", generalPending[0]?.title ?? null, ...(general.summary.last_done_on ? [daysAgoPhrase(general.summary.last_done_on, today)] : [])]) ? (
+        <section className="mt-14" aria-labelledby="grupo-geral">
+          <h2 id="grupo-geral" className="text-xs uppercase tracking-wider text-ink-muted">Sem área</h2>
+          <ul className="mt-6 grid gap-8 sm:grid-cols-2 md:grid-cols-3 md:gap-x-12">
+            <SubjectCard
+              compact
+              href="/casa/geral"
+              title="Geral"
+              subtitle={generalPending.length > 1 ? `${generalPending.length} pendências` : null}
+              next={generalPending[0] ?? null}
+              lines={general.summary.last_done_on ? [`Último registro ${daysAgoPhrase(general.summary.last_done_on, today)}`] : []}
+            />
           </ul>
         </section>
-      ))}
-
-      <section className="mt-14" aria-labelledby="grupo-geral">
-        <h2 id="grupo-geral" className="text-xs uppercase tracking-wider text-ink-muted">Sem área</h2>
-        <ul className="mt-6 grid gap-8 sm:grid-cols-2 md:grid-cols-3 md:gap-x-12">
-          <SubjectCard
-            compact
-            href="/casa/geral"
-            title="Geral"
-            subtitle={generalPending.length > 1 ? `${generalPending.length} pendências` : null}
-            next={generalPending[0] ?? null}
-            lines={general.summary.last_done_on ? [`Último registro ${daysAgoPhrase(general.summary.last_done_on, today)}`] : []}
-          />
-        </ul>
-      </section>
+      ) : null}
     </main>
   );
 }

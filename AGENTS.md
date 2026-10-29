@@ -70,7 +70,7 @@ The app surfaces what needs attention, timelines, and history. It does **not** a
 - Authentication for agent routes: simple shared secret or API key (via environment variable). Never hardcode secrets.
 - User-facing UI is primarily visual: dashboards, lists, timelines, cards. Minimal forms. Prefer agent-driven data entry.
 - Business logic lives in dedicated modules (not mixed with UI components).
-- Panel input is one-tap buttons only. **Owner-approved exception:** the admin-only bot settings page (`/agentes/bot`) has a small form (AI provider, model, base URL, AI API key, Telegram bot token) plus buttons (save, enable/disable, register webhook, test, rotate webhook secret). Do not add other text-entry forms without the owner's approval.
+- Panel input is one-tap buttons only. **Owner-approved exceptions:** the admin-only bot settings page (`/agentes/bot`) has a small form (AI provider, model, base URL, AI API key, Telegram bot token) plus buttons (save, enable/disable, register webhook, test, rotate webhook secret); and the list search (`?q=`, component `ListSearch`) which only filters what is already on the screen and writes nothing. Do not add other text-entry forms without the owner's approval.
 - Bot and integration secrets live in the database, encrypted with AES-256-GCM under one master key, `CASA_SECRET_KEY` (32 random bytes, base64). Never return a saved secret to the client: show the last 4 characters only. Log who changed what and when, never the values.
 
 ## House routines (the /casa checklist)

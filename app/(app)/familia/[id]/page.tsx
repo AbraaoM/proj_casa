@@ -4,13 +4,15 @@ import { Medications } from "@/components/history/medications";
 import { SubjectDetail } from "@/components/history/subject-detail";
 import { loadSubjectDetail } from "@/lib/services/subject-pages";
 import { agePhrase, daysAgoPhrase, formatDate } from "@/lib/ui/format";
+import { matchesSearch, searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ categoria?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ categoria?: string; q?: string }> };
 
 export default async function FamilyMemberPage({ params, searchParams }: Props) {
-  const [{ id }, { categoria }] = await Promise.all([params, searchParams]);
+  const [{ id }, { categoria, q }] = await Promise.all([params, searchParams]);
+  const query = searchQuery(q);
   const page = await loadSubjectDetail("family", id);
   if (page.status !== "ready") return <PageNotice status={page.status} backHref="/familia" />;
   const { today, data } = page;
@@ -41,7 +43,8 @@ export default async function FamilyMemberPage({ params, searchParams }: Props) 
       events={data.events}
       basePath={`/familia/${member.id}`}
       category={categoria ?? null}
-      lead={<Medications medications={data.medications} today={today} />}
+      query={query}
+      lead={<Medications medications={data.medications.filter((medication) => matchesSearch(query, [medication.item.title, medication.item.notes]))} today={today} />}
     />
   );
 }

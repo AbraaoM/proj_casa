@@ -6,6 +6,7 @@ import { AppShell } from "@/components/nav/app-shell";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { currentUser } from "@/lib/auth/session";
 import { loadDashboard } from "@/lib/services/dashboard";
+import { searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
@@ -15,20 +16,21 @@ export const dynamic = "force-dynamic";
  * data is never loaded. With a session, the shell shows at once and the
  * dashboard streams in behind a skeleton.
  */
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams?: Promise<{ q?: string }> } = {}) {
   const user = await currentUser();
   if (!user) return <Landing />;
   if (user.mustChangePassword) redirect("/trocar-senha");
+  const query = searchQuery((await searchParams)?.q);
   return (
     <AppShell user={user}>
       <Suspense fallback={<PageSkeleton />}>
-        <Dashboard />
+        <Dashboard query={query} />
       </Suspense>
     </AppShell>
   );
 }
 
-async function Dashboard() {
+async function Dashboard({ query = "" }: { query?: string } = {}) {
   const data = await loadDashboard();
-  return <HomeDashboard data={data} />;
+  return <HomeDashboard data={data} query={query} />;
 }
