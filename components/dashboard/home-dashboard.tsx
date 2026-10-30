@@ -11,6 +11,7 @@ import { ListSearch } from "@/components/ui/list-search";
 import { categoryLabel, formatMoney } from "@/lib/ui/format";
 import { markerClass, priorityWord } from "@/lib/ui/attention";
 import { agendaTimeLabel } from "@/lib/ui/agenda";
+import { housePanelDigest, housePanelSlice } from "@/lib/ui/house-panel";
 import { matchesSearch } from "@/lib/ui/search";
 
 const LABELS: Record<Domain, string> = {
@@ -91,7 +92,7 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
         </section>
       ) : null}
 
-      <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-6">
+      <div className="mt-10 grid items-start gap-4 md:grid-cols-2 md:gap-6">
         {DOMAINS.filter((domain) => domainVisible(data, domain, query)).map((domain) => {
           const items = (ready?.items.filter((item) => item.domain === domain) ?? []).filter((item) =>
             matchesSearch(query, [item.title, item.subject_name, item.notes, categoryLabel(item.category)]),
@@ -102,6 +103,9 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
           const suggested = (domain === "finance" ? ready?.finance?.suggested ?? [] : []).filter((bill) =>
             matchesSearch(query, [bill.name, bill.category_name, bill.notes]),
           );
+          const house = domain === "house" ? housePanelSlice(items) : null;
+          const visibleItems = house ? house.shown : items;
+          const hidden = house?.hidden ?? 0;
           const Icon = ICONS[domain];
           const label = (
             <>
@@ -149,6 +153,9 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
                   Chuva prevista hoje. Tarefas externas podem esperar.
                 </p>
               ) : null}
+              {domain === "house" && hidden > 0 ? (
+                <p className="mt-3 text-sm text-ink-muted">{housePanelDigest(items)}</p>
+              ) : null}
               {items.length === 0 ? (
                 !ready ? (
                   <p className="mt-4 text-sm text-ink-muted">Sem dados</p>
@@ -157,7 +164,7 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
                 )
               ) : (
                 <ul className="mt-4 space-y-4">
-                  {items.map((item) => (
+                  {visibleItems.map((item) => (
                     <li
                       key={item.id}
                       className={`border-l-2 pl-3 ${markerClass(item.attention)}`}
@@ -176,6 +183,16 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
                   ))}
                 </ul>
               )}
+              {hidden > 0 && href ? (
+                <p className="mt-3">
+                  <Link
+                    href={query ? `${href}?q=${encodeURIComponent(query)}` : href}
+                    className="inline-flex min-h-11 items-center text-sm text-ink-muted underline-offset-4 hover:text-black hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:hover:text-white"
+                  >
+                    {hidden === 1 ? "Mais 1 na Casa" : `Mais ${hidden} na Casa`}
+                  </Link>
+                </p>
+              ) : null}
               {domain === "finance" && ready?.finance ? <SuggestedBills bills={suggested} compact /> : null}
             </section>
           );
