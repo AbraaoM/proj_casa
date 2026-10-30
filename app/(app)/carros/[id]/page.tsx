@@ -4,13 +4,14 @@ import { Stat } from "@/components/history/stat";
 import { SubjectDetail } from "@/components/history/subject-detail";
 import { loadSubjectDetail } from "@/lib/services/subject-pages";
 import { categoryLabel, daysAgoPhrase, formatKm, formatMoney } from "@/lib/ui/format";
+import { searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ categoria?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ categoria?: string; q?: string }> };
 
 export default async function CarPage({ params, searchParams }: Props) {
-  const [{ id }, { categoria }] = await Promise.all([params, searchParams]);
+  const [{ id }, { categoria, q }] = await Promise.all([params, searchParams]);
   const page = await loadSubjectDetail("vehicle", id);
   if (page.status !== "ready") return <PageNotice status={page.status} backHref="/carros" />;
   const { today, data } = page;
@@ -52,6 +53,7 @@ export default async function CarPage({ params, searchParams }: Props) {
       events={data.events}
       basePath={`/carros/${vehicle.id}`}
       category={categoria ?? null}
+      query={searchQuery(q)}
     />
   );
 }

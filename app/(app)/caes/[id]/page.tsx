@@ -5,15 +5,16 @@ import { SubjectDetail } from "@/components/history/subject-detail";
 import { WeightSpark } from "@/components/history/weight-spark";
 import { loadSubjectDetail } from "@/lib/services/subject-pages";
 import { agePhrase, daysAgoPhrase, formatDate, formatKg, formatMoney } from "@/lib/ui/format";
+import { searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
 const SEX = { male: "Macho", female: "Fêmea", unknown: null } as const;
 
-type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ categoria?: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ categoria?: string; q?: string }> };
 
 export default async function DogPage({ params, searchParams }: Props) {
-  const [{ id }, { categoria }] = await Promise.all([params, searchParams]);
+  const [{ id }, { categoria, q }] = await Promise.all([params, searchParams]);
   const page = await loadSubjectDetail("dog", id);
   if (page.status !== "ready") return <PageNotice status={page.status} backHref="/caes" />;
   const { today, data } = page;
@@ -58,6 +59,7 @@ export default async function DogPage({ params, searchParams }: Props) {
       events={data.events}
       basePath={`/caes/${dog.id}`}
       category={categoria ?? null}
+      query={searchQuery(q)}
     />
   );
 }

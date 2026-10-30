@@ -5,10 +5,12 @@ import { TransactionList } from "@/components/finance/transaction-list";
 import { PageNotice } from "@/components/history/page-notice";
 import { loadTransactionsPage } from "@/lib/services/finance-pages";
 import { formatMoney } from "@/lib/ui/format";
+import { ListSearch } from "@/components/ui/list-search";
+import { matchesSearch, searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
-type Search = { mes?: string; tipo?: string; conta?: string; categoria?: string; origem?: string };
+type Search = { mes?: string; tipo?: string; conta?: string; categoria?: string; origem?: string; q?: string };
 type Props = { searchParams: Promise<Search> };
 
 const KINDS = [
@@ -28,6 +30,7 @@ function chipClass(selected: boolean) {
 
 export default async function TransactionsPage({ searchParams }: Props) {
   const search = await searchParams;
+  const query = searchQuery(search.q);
   const page = await loadTransactionsPage(search);
   if (page.status !== "ready") return <PageNotice status={page.status} backHref="/financas" />;
   const { data } = page;
@@ -37,6 +40,7 @@ export default async function TransactionsPage({ searchParams }: Props) {
     conta: data.filters.account,
     categoria: data.filters.category,
     origem: data.filters.origin,
+    q: query || null,
   };
   const href = (change: Record<string, string | null>) => {
     const params = new URLSearchParams();
@@ -49,6 +53,11 @@ export default async function TransactionsPage({ searchParams }: Props) {
   const active: ActiveFilter[] = [];
   if (category) active.push({ label: category.name, clear: { categoria: null } });
   if (data.filters.origin) active.push({ label: originLabel(data.filters.origin, data.transactions), clear: { origem: null } });
+  const shown = data.transactions.filter((tx) =>
+    matchesSearch(query, [tx.description, tx.category_name, tx.account_name, tx.to_account_name, tx.payee, tx.origin_subject_name, tx.notes]),
+  );
+  const income = shown.reduce((sum, tx) => sum + (tx.kind === "income" ? tx.amount_cents : 0), 0);
+  const expense = shown.reduce((sum, tx) => sum + (tx.kind === "expense" ? tx.amount_cents : 0), 0);
 
   return (
     <FinancePage
@@ -100,24 +109,30 @@ export default async function TransactionsPage({ searchParams }: Props) {
           </ul>
         ) : null}
       </nav>
+      <ListSearch
+        action="/financas/lancamentos"
+        query={query}
+        placeholder="Buscar lançamento"
+        hidden={{ mes: current.mes, tipo: current.tipo, conta: current.conta, categoria: current.categoria, origem: current.origem }}
+      />
 
       <dl className="mt-8 flex flex-wrap gap-x-8 gap-y-2 text-sm">
         <div className="flex gap-2">
           <dt className="text-ink-muted">Lançamentos</dt>
-          <dd className="tabular-nums">{data.total}</dd>
+          <dd className="tabular-nums">{query ? shown.length : data.total}</dd>
         </div>
         <div className="flex gap-2">
           <dt className="text-ink-muted">Entradas</dt>
-          <dd className="tabular-nums">{formatMoney(data.totals.income_cents)}</dd>
+          <dd className="tabular-nums">{formatMoney(query ? income : data.totals.income_cents)}</dd>
         </div>
         <div className="flex gap-2">
           <dt className="text-ink-muted">Saídas</dt>
-          <dd className="tabular-nums">{formatMoney(data.totals.expense_cents)}</dd>
+          <dd className="tabular-nums">{formatMoney(query ? expense : data.totals.expense_cents)}</dd>
         </div>
       </dl>
 
       <section className="mt-6 border-t border-line pt-2 dark:border-line-dark md:max-w-3xl">
-        <TransactionList transactions={data.transactions} emptyText="Nenhum lançamento com esses filtros." />
+        <TransactionList transactions={shown} emptyText={query ? "Nada com essa busca." : "Nenhum lançamento com esses filtros."} />
       </section>
     </FinancePage>
   );

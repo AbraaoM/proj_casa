@@ -5,8 +5,16 @@ import { categoryUnlessTitle } from "@/lib/ui/format";
 import { AttentionMark, EmptyNote } from "@/components/ui/attention-mark";
 import { ItemActions } from "@/components/one-tap/item-actions";
 
-export function ActiveList({ items, showSubject = false }: { items: AttentionItem[]; showSubject?: boolean }) {
-  if (items.length === 0) return <EmptyNote>Nada pendente</EmptyNote>;
+export function ActiveList({
+  items,
+  showSubject = false,
+  empty = "Nada pendente",
+}: {
+  items: AttentionItem[];
+  showSubject?: boolean;
+  empty?: string;
+}) {
+  if (items.length === 0) return <EmptyNote>{empty}</EmptyNote>;
   return (
     <ul className="mt-4 space-y-4">
       {items.map((item) => (

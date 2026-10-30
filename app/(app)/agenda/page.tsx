@@ -10,6 +10,8 @@ import { listHouseholdAgenda, loadAgendaLink, type AgendaNotice } from "@/lib/se
 import { readSettings } from "@/lib/services/settings";
 import { todayInTimeZone } from "@/lib/domain/dates";
 import { agendaDayKey, agendaDayLabel, agendaTimeLabel } from "@/lib/ui/agenda";
+import { ListSearch } from "@/components/ui/list-search";
+import { matchesSearch, searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +22,11 @@ const NOTICES: Partial<Record<AgendaNotice, string>> = {
   failed: "Não consegui ler a agenda.",
 };
 
-type Props = { searchParams: Promise<{ agenda?: string }> };
+type Props = { searchParams: Promise<{ agenda?: string; q?: string }> };
 
 export default async function AgendaPage({ searchParams }: Props) {
-  const { agenda: noticeKey } = await searchParams;
+  const { agenda: noticeKey, q } = await searchParams;
+  const query = searchQuery(q);
   const user = await currentUser();
   const sql = tryGetSql();
   if (!user || !sql) return <PageNotice status="unconfigured" />;
@@ -50,7 +53,8 @@ export default async function AgendaPage({ searchParams }: Props) {
     warnings = ["Não consegui ler a agenda agora."];
   }
 
-  const groups = groupByDay(events, timeZone);
+  const shown = events.filter((event) => matchesSearch(query, [event.title, event.owner, event.location]));
+  const groups = groupByDay(shown, timeZone);
   const notice = noticeKey && noticeKey in NOTICES ? NOTICES[noticeKey as AgendaNotice] : null;
 
   return (
@@ -77,8 +81,10 @@ export default async function AgendaPage({ searchParams }: Props) {
         <p key={warning} className="mt-4 text-sm text-ink-muted">{warning}</p>
       ))}
 
+      {events.length > 0 || query ? <ListSearch action="/agenda" query={query} placeholder="Buscar compromisso" /> : null}
+
       {groups.length === 0 ? (
-        <p className="mt-10 text-sm text-ink-muted">Nada nos próximos 14 dias.</p>
+        <p className="mt-10 text-sm text-ink-muted">{query && events.length > 0 ? "Nada com essa busca." : "Nada nos próximos 14 dias."}</p>
       ) : (
         <div className="mt-10 space-y-8">
           {groups.map((group) => (

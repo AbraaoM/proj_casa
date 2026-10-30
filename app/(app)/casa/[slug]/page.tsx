@@ -7,13 +7,15 @@ import { RoutineSheet } from "@/components/house/sheet";
 import { loadAreaDetail } from "@/lib/services/subject-pages";
 import { daysAgoPhrase, formatMoney } from "@/lib/ui/format";
 import { AREA_KIND_SINGULAR, lastCleaning, RAIN_NOTICE } from "@/lib/ui/house";
+import { matchesSearch, searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ categoria?: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ categoria?: string; q?: string }> };
 
 export default async function AreaPage({ params, searchParams }: Props) {
-  const [{ slug }, { categoria }] = await Promise.all([params, searchParams]);
+  const [{ slug }, { categoria, q }] = await Promise.all([params, searchParams]);
+  const query = searchQuery(q);
   const page = await loadAreaDetail(slug);
   if (page.status !== "ready") return <PageNotice status={page.status} backHref="/casa" />;
   const { today, data } = page;
@@ -22,6 +24,7 @@ export default async function AreaPage({ params, searchParams }: Props) {
   const deep = summary.last_by_category.deep_clean;
   const repair = summary.last_by_category.repair;
 
+  const routines = data.routines.filter((routine) => matchesSearch(query, [routine.title, routine.area_name]));
   return (
     <SubjectDetail
       back={{ href: "/casa", label: "Casa" }}
@@ -35,9 +38,9 @@ export default async function AreaPage({ params, searchParams }: Props) {
             <section className="mt-10 border-t border-line pt-4 dark:border-line-dark" aria-labelledby="checklist">
               <div className="flex items-baseline justify-between gap-4">
                 <h2 id="checklist" className="text-lg">Checklist</h2>
-                <p className="text-sm text-ink-faint">{statusSummary(data.routines)}</p>
+                <p className="text-sm text-ink-faint">{statusSummary(query ? routines : data.routines)}</p>
               </div>
-              <RoutineList routines={data.routines} columns empty="Sem rotinas." />
+              <RoutineList routines={routines} columns empty={query ? "Nada com essa busca." : "Sem rotinas."} />
             </section>
             <RoutineSheet sheet={data.sheet} today={today} />
           </>
@@ -61,6 +64,7 @@ export default async function AreaPage({ params, searchParams }: Props) {
       events={data.events}
       basePath={`/casa/${area.slug}`}
       category={categoria ?? null}
+      query={query}
     />
   );
 }

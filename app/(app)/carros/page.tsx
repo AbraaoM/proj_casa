@@ -4,15 +4,27 @@ import { SubjectCard } from "@/components/history/subject-card";
 import { loadSubjectList } from "@/lib/services/subject-pages";
 import { daysAgoPhrase, formatKm, formatMoney } from "@/lib/ui/format";
 
+import { matchesSearch, searchQuery } from "@/lib/ui/search";
+
 export const dynamic = "force-dynamic";
 
-export default async function CarsPage() {
+export default async function CarsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const query = searchQuery((await searchParams).q);
   const page = await loadSubjectList("vehicle");
   if (page.status !== "ready") return <PageNotice status={page.status} />;
   const { data: vehicles, today } = page;
+  const shown = vehicles.filter(({ subject: vehicle, active_items }) =>
+    matchesSearch(query, [vehicle.name, vehicle.make, vehicle.model, vehicle.plate, active_items[0]?.title ?? null]),
+  );
   return (
-    <ListPage title="Carros" intro="Manutenção, quilometragem e gastos de cada veículo." count={vehicles.length} empty="Nenhum veículo cadastrado. Peça ao seu agente para cadastrar.">
-      {vehicles.map(({ subject: vehicle, active_items, summary }) => (
+    <ListPage
+      title="Carros"
+      intro="Manutenção, quilometragem e gastos de cada veículo."
+      count={shown.length}
+      empty={query && vehicles.length > 0 ? "Nada com essa busca." : "Nenhum veículo cadastrado. Peça ao seu agente para cadastrar."}
+      search={vehicles.length > 0 || query ? { action: "/carros", query } : null}
+    >
+      {shown.map(({ subject: vehicle, active_items, summary }) => (
         <SubjectCard
           key={vehicle.id}
           href={`/carros/${vehicle.id}`}

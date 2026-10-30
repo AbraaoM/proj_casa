@@ -1,21 +1,26 @@
 import Link from "next/link";
 import { categoryLabel } from "@/lib/ui/format";
+import { withQuery } from "@/lib/ui/search";
 
 /** Filter links. Plain anchors with ?categoria=, so filtering needs no client JS. */
 export function CategoryChips({
   basePath,
   categories,
   active,
+  keep,
 }: {
   basePath: string;
   categories: Array<{ slug: string; count: number }>;
   active: string | null;
+  /** Other params to keep, such as the list search. */
+  keep?: Record<string, string | null | undefined>;
 }) {
   if (categories.length < 2) return null;
-  const chip = (href: string, label: string, selected: boolean, key: string, count?: number) => (
+  const href = (categoria: string | null) => withQuery(basePath, { ...keep, categoria });
+  const chip = (link: string, label: string, selected: boolean, key: string, count?: number) => (
     <li key={key}>
       <Link
-        href={href}
+        href={link}
         scroll={false}
         aria-current={selected ? "true" : undefined}
         className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-md border px-3 text-sm transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
@@ -32,15 +37,9 @@ export function CategoryChips({
   return (
     <nav aria-label="Filtrar por categoria" className="-mx-5 mt-4 overflow-x-auto px-5 md:mx-0 md:px-0">
       <ul className="flex gap-2 pb-1 md:flex-wrap">
-        {chip(basePath, "Tudo", active === null, "all")}
+        {chip(href(null), "Tudo", active === null, "all")}
         {categories.map((category) =>
-          chip(
-            `${basePath}?categoria=${category.slug}`,
-            categoryLabel(category.slug),
-            active === category.slug,
-            category.slug,
-            category.count,
-          ),
+          chip(href(category.slug), categoryLabel(category.slug), active === category.slug, category.slug, category.count),
         )}
       </ul>
     </nav>

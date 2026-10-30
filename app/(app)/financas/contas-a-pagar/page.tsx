@@ -8,29 +8,40 @@ import { loadBillsPage } from "@/lib/services/finance-pages";
 import { markerClass } from "@/lib/ui/attention";
 import { BILL_KIND_LABELS, dueAttention, frequencyPhrase } from "@/lib/ui/finance";
 import { formatDate, formatMoney } from "@/lib/ui/format";
+import { ListSearch } from "@/components/ui/list-search";
+import { matchesSearch, searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
 
 const STATUS = { paused: "pausada", ended: "encerrada", active: "ativa", suggested: "sugerida" } as const;
 
-export default async function BillsPage() {
+export default async function BillsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const query = searchQuery((await searchParams).q);
   const page = await loadBillsPage();
   if (page.status !== "ready") return <PageNotice status={page.status} backHref="/financas" />;
-  const { active, suggested, inactive, monthly_total_cents } = page.data;
+  const all = page.data;
+  const billText = (bill: { name: string; category_name: string | null; account_slug: string | null; notes?: string | null }) =>
+    [bill.name, bill.category_name, bill.account_slug, bill.notes ?? null];
+  const active = all.active.filter((bill) => matchesSearch(query, billText(bill)));
+  const suggested = all.suggested.filter((bill) => matchesSearch(query, billText(bill)));
+  const inactive = all.inactive.filter((bill) => matchesSearch(query, billText(bill)));
+  const { monthly_total_cents } = all;
   const overdue = active.filter((bill) => bill.days_until_due < 0).length;
+  const searchable = all.active.length + all.suggested.length + all.inactive.length > 0;
 
   return (
     <FinancePage tab="a-pagar" title="A pagar">
       <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-6 md:grid-cols-3">
         <Stat label="Por mês" value={formatMoney(monthly_total_cents)} hint="o que se repete, em média" />
-        <Stat label="Ativas" value={String(active.length)} hint={overdue > 0 ? (overdue === 1 ? "1 atrasada" : `${overdue} atrasadas`) : "nenhuma atrasada"} />
+        <Stat label="Ativas" value={String(query ? active.length : all.active.length)} hint={overdue > 0 ? (overdue === 1 ? "1 atrasada" : `${overdue} atrasadas`) : "nenhuma atrasada"} />
       </div>
+      {searchable ? <ListSearch action="/financas/contas-a-pagar" query={query} placeholder="Buscar conta" /> : null}
 
       <div className="mt-12 grid grid-cols-1 gap-12 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-16">
         <section className="min-w-0 border-t border-line pt-4 dark:border-line-dark">
           <h2 className="text-lg">Por vencimento</h2>
           {active.length === 0 ? (
-            <p className="mt-4 text-sm text-ink-muted">Nenhuma conta cadastrada. Conte ao seu agente o que vence todo mês.</p>
+            <p className="mt-4 text-sm text-ink-muted">{query ? "Nada com essa busca." : "Nenhuma conta cadastrada. Conte ao seu agente o que vence todo mês."}</p>
           ) : (
             <ul className="mt-4 space-y-6">
               {active.map((bill) => {
