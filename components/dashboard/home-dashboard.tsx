@@ -3,6 +3,7 @@ import { CalendarDays, Car, ChevronRight, CloudRain, Dog, House, Users, Wallet, 
 import { AttentionMark, EmptyNote } from "@/components/ui/attention-mark";
 import { attentionPhrase } from "@/lib/domain/attention";
 import { DOMAINS, type Domain } from "@/lib/domain/types";
+import { previewDeeds, type DayDeed } from "@/lib/domain/day-report";
 import { SuggestedBills } from "@/components/finance/suggested-bills";
 import { ItemActions } from "@/components/one-tap/item-actions";
 import { monthLabel } from "@/lib/domain/history";
@@ -12,6 +13,7 @@ import { categoryLabel, formatMoney } from "@/lib/ui/format";
 import { markerClass, priorityWord } from "@/lib/ui/attention";
 import { agendaTimeLabel } from "@/lib/ui/agenda";
 import { housePanelDigest, housePanelSlice } from "@/lib/ui/house-panel";
+import { DAY_KIND_LABEL } from "@/lib/ui/day";
 import { matchesSearch } from "@/lib/ui/search";
 
 const LABELS: Record<Domain, string> = {
@@ -65,7 +67,7 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
         {place ? <p className="mt-4 text-sm text-ink-muted">{place}</p> : null}
       </section>
 
-      {ready && (ready.items.length > 0 || DOMAINS.some((domain) => (ready.subjects[domain]?.length ?? 0) > 0) || (ready.agenda?.events.length ?? 0) > 0) ? (
+      {ready && (ready.items.length > 0 || DOMAINS.some((domain) => (ready.subjects[domain]?.length ?? 0) > 0) || (ready.agenda?.events.length ?? 0) > 0 || (ready.day?.people.some((person) => person.deeds.length > 0) ?? false)) ? (
         <ListSearch action="/" query={query} placeholder="Buscar pendência" />
       ) : null}
 
@@ -90,6 +92,22 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {ready && ready.day ? (
+        <DayStrip
+          deeds={previewDeeds(
+            [
+              {
+                name: "",
+                deeds: ready.day.people
+                  .flatMap((person) => person.deeds)
+                  .filter((deed) => matchesSearch(query, [deed.title, deed.detail, deed.by, DAY_KIND_LABEL[deed.kind]])),
+              },
+            ],
+            4,
+          )}
+        />
       ) : null}
 
       <div className="mt-10 grid items-start gap-4 md:grid-cols-2 md:gap-6">
@@ -198,10 +216,33 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
           );
         })}
       </div>
-      {query && ready && !DOMAINS.some((domain) => domainVisible(data, domain, query)) && !(ready.agenda?.events.some((event) => matchesSearch(query, [event.title, event.owner, event.location])) ?? false) ? (
+      {query && ready && !DOMAINS.some((domain) => domainVisible(data, domain, query)) && !(ready.agenda?.events.some((event) => matchesSearch(query, [event.title, event.owner, event.location])) ?? false) && !ready.day?.people.some((person) => person.deeds.some((deed) => matchesSearch(query, [deed.title, deed.detail, deed.by, DAY_KIND_LABEL[deed.kind]]))) ? (
         <p className="mt-8 text-sm text-ink-muted">Nada com essa busca.</p>
       ) : null}
     </main>
+  );
+}
+
+function DayStrip({ deeds }: { deeds: DayDeed[] }) {
+  if (deeds.length === 0) return null;
+  return (
+    <section className="mt-10 max-w-xl">
+      <h2 className="text-lg">
+        <Link href="/hoje" className="inline-flex min-h-11 items-center gap-2 underline-offset-4 hover:underline">
+          Hoje
+        </Link>
+      </h2>
+      <ul className="mt-2">
+        {deeds.map((deed) => (
+          <li key={`${deed.kind}-${deed.id}`} className="border-b border-line py-3 text-sm dark:border-line-dark">
+            <span className="text-ink-muted">{deed.by}</span>
+            {" · "}
+            {deed.title}
+            {deed.at ? <span className="text-ink-muted"> · {deed.at}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

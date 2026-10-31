@@ -8,7 +8,7 @@ O agente usa uma chave gerada em Agentes (cada chave é de uma pessoa e tem o no
 
 ## Telas
 
-Só leitura. `/` mostra o que pede atenção. No card da Casa, o painel lista no máximo as 4 atrasadas ou que vencem hoje (ou as 4 mais próximas, se nenhuma está atrasada) e resume o resto em quantidade, com link para `/casa`. `/caes`, `/carros`, `/familia` e `/casa` listam cada cão, veículo, pessoa e área; a página de cada um (`/caes/:id`, `/carros/:id`, `/familia/:id`, `/casa/:slug`, `/casa/geral`) traz os destaques, os próximos e o histórico por mês, com filtro `?categoria=`. `/agenda` mostra os próximos 14 dias do Google Agenda de quem conectou a própria conta. Em qualquer dessas listas, e também na agenda, em lançamentos, contas e contas a pagar, `?q=` busca dentro do que já está na tela (sem acento, cada palavra). A busca não grava nada.
+Só leitura. `/` mostra o que pede atenção. No card da Casa, o painel lista no máximo as 4 atrasadas ou que vencem hoje (ou as 4 mais próximas, se nenhuma está atrasada) e resume o resto em quantidade, com link para `/casa`. `/hoje` mostra quem fez tarefa, pagamento e checklist naquele dia (o padrão é hoje; `?dia=AAAA-MM-DD` abre outro). A tela de hoje atualiza sozinha. `/caes`, `/carros`, `/familia` e `/casa` listam cada cão, veículo, pessoa e área; a página de cada um (`/caes/:id`, `/carros/:id`, `/familia/:id`, `/casa/:slug`, `/casa/geral`) traz os destaques, os próximos e o histórico por mês, com filtro `?categoria=`. `/agenda` mostra os próximos 14 dias do Google Agenda de quem conectou a própria conta. Em qualquer dessas listas, e também na agenda, em lançamentos, contas e contas a pagar, `?q=` busca dentro do que já está na tela (sem acento, cada palavra). A busca não grava nada.
 
 `/financas?mes=AAAA-MM` mostra o mês: saldo de hoje, resultado, contas a pagar, orçamento e para onde foi o dinheiro. `/financas/lancamentos` lista os lançamentos com filtros (mês, tipo, conta, categoria, `origem=dog:<id>`); `/financas/contas` e `/financas/contas/:slug` mostram saldos e o saldo informado. `/financas/contas-a-pagar` lista as contas que se repetem por vencimento, com os últimos pagamentos; `/financas/orcamento` compara orçado e realizado por categoria e filhas, com os últimos 6 meses. A página do cartão mostra a fatura aberta e as próximas parcelas. As páginas de cão, carro e área levam a "Ver em Finanças".
 
@@ -80,6 +80,7 @@ Datas são dias de calendário (`YYYY-MM-DD`) no fuso da casa (`America/Sao_Paul
 | GET | `/api/agent/health` | chave, banco, versão do schema e quem a chave representa (`caller`) |
 | POST | `/api/mcp` | MCP remoto (JSON-RPC) com 10 ferramentas; mesma chave. Guia: `docs/agente-conectar.md` |
 | GET | `/api/agent/attention?domain=&within_days=14` | pendências ordenadas |
+| GET | `/api/agent/day?date=AAAA-MM-DD` | quem fez tarefa, pagamento e checklist nesse dia (sem data, hoje) |
 | GET | `/api/agent/items` | lista (`domain`, `status`, `dog_id`, `family_member_id`, `vehicle_id`, `limit`) |
 | POST | `/api/agent/items` | cria um item |
 | POST | `/api/agent/items/bulk` | até 50 criações, cada uma com o próprio `ok` |

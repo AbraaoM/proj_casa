@@ -29,7 +29,7 @@ export const COPY = {
   linked: (username: string, agentName: string) =>
     `Pronto, ${username}: sua conta da Casa está ligada. Hoje meu nome é ${agentName}. Se quiser outro, é só dizer como quer me chamar.`,
   digestOff: "Certo, não mando mais o resumo do dia neste chat.",
-  digestOn: "Certo, mando o resumo do dia neste chat, de manhã.",
+  digestOn: "Certo, mando o resumo neste chat: de manhã o que pede atenção, e às 22h quem fez o quê.",
   privateFirst: "Me mande um oi no privado primeiro, para eu poder responder por lá.",
   answeredPrivately: "Te respondi no privado.",
   houseAllGood: "Tudo em dia na limpeza e rotina da casa.",

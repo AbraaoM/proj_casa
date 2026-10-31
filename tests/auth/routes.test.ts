@@ -9,10 +9,11 @@ describe("proxy decision", () => {
   });
 
   it("still sends the private pages to /login without a session", () => {
-    for (const path of ["/familia", "/financas/contas", "/mais", "/agentes", "/agenda", "/usuarios", "/caes/x"]) {
+    for (const path of ["/familia", "/financas/contas", "/mais", "/agentes", "/agenda", "/hoje", "/usuarios", "/caes/x"]) {
       expect(proxyDecision(path, false)).toBe("login");
       expect(proxyDecision(path, true)).toBe("pass");
     }
+    expect(proxyDecision("/api/telegram/report", false)).toBe("pass");
   });
 
   it("never touches the agent API, with or without a cookie", () => {
