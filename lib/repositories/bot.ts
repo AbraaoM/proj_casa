@@ -270,6 +270,35 @@ export async function claimDigestChats(sql: Sql, today: string): Promise<number[
   return claimed;
 }
 
+/**
+ * Where the evening "who did what" report goes. Same chats as the morning summary,
+ * claimed apart so the morning send does not block this one.
+ */
+export async function claimReportChats(sql: Sql, today: string): Promise<number[]> {
+  const groups = await sql.query<{ chat_id: unknown }>(
+    `SELECT chat_id FROM telegram_chats WHERE active AND digest AND kind IN ('group', 'supergroup')`,
+  );
+  const candidates = groups.length > 0
+    ? groups.map((row) => Number(row.chat_id))
+    : (await sql.query<{ chat_id: unknown }>(
+        `SELECT DISTINCT l.private_chat_id AS chat_id FROM telegram_links l
+         LEFT JOIN telegram_chats c ON c.chat_id = l.private_chat_id
+         WHERE l.revoked_at IS NULL AND l.private_chat_id IS NOT NULL AND COALESCE(c.digest, true) AND COALESCE(c.active, true)`,
+      )).map((row) => Number(row.chat_id));
+  const claimed: number[] = [];
+  for (const chatId of candidates) {
+    const rows = await sql.query(
+      `INSERT INTO telegram_chats (chat_id, kind, last_report_on) VALUES ($1, 'private', $2::date)
+       ON CONFLICT (chat_id) DO UPDATE SET last_report_on = $2::date, updated_at = now()
+       WHERE telegram_chats.last_report_on IS DISTINCT FROM $2::date
+       RETURNING chat_id`,
+      [chatId, today],
+    );
+    if (rows.length > 0) claimed.push(chatId);
+  }
+  return claimed;
+}
+
 export type StoredMessage = { role: "user" | "assistant"; author: string | null; content: string };
 
 export async function addMessage(sql: Sql, message: { chatId: number; userId: string | null; role: "user" | "assistant"; author: string | null; content: string }): Promise<void> {

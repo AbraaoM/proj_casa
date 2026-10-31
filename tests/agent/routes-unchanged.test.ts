@@ -11,6 +11,7 @@ const EXPECTED = [
   "attention GET",
   "calendar GET",
   "calendar/events POST",
+  "day GET",
   "dogs GET POST",
   "dogs/[id] GET PATCH",
   "dogs/[id]/history GET",

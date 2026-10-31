@@ -7,7 +7,7 @@ describe("navigation", () => {
   });
 
   it("Mais holds what the bar leaves out", () => {
-    expect(MORE_ENTRIES.map((e) => e.href)).toEqual(["/caes", "/carros", "/agenda", "/agentes", "/usuarios"]);
+    expect(MORE_ENTRIES.map((e) => e.href)).toEqual(["/caes", "/carros", "/agenda", "/hoje", "/agentes", "/usuarios"]);
   });
 
   it("panel is active only on /", () => {
@@ -20,6 +20,7 @@ describe("navigation", () => {
   it("pages behind Mais light up Mais on the phone", () => {
     expect(activeBottom("/caes/x")).toBe("mais");
     expect(activeBottom("/agenda")).toBe("mais");
+    expect(activeBottom("/hoje")).toBe("mais");
     expect(activeBottom("/usuarios")).toBe("mais");
     expect(activeBottom("/mais")).toBe("mais");
     expect(activeBottom("/casa")).toBe("casa");

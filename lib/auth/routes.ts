@@ -13,7 +13,7 @@ export function proxyDecision(pathname: string, hasSessionCookie: boolean): Prox
   // The MCP endpoint checks its own bearer key.
   if (pathname === "/api/mcp") return "pass";
   // Telegram (secret header) and Vercel Cron call these without a session.
-  if (pathname === "/api/telegram/webhook" || pathname === "/api/telegram/digest") return "pass";
+  if (pathname === "/api/telegram/webhook" || pathname === "/api/telegram/digest" || pathname === "/api/telegram/report") return "pass";
   if (PUBLIC_PATHS.has(pathname)) return "pass";
   return hasSessionCookie ? "pass" : "login";
 }

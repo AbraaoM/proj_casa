@@ -1,6 +1,6 @@
 # Bot do Telegram
 
-O bot é o seu agente dentro do Telegram, no privado e no grupo da família. Ele usa o catálogo inteiro do MCP (`docs/agente-conectar.md`, seção 11), com o mesmo manual de operação, grava em nome de quem escreveu e manda um resumo do dia de manhã. Uma data prevista (a próxima troca de óleo) vira pendência em Próximos; a quilometragem vai no hodômetro do carro. Se a gravação falha, ele diz que não gravou, em vez de confirmar.
+O bot é o seu agente dentro do Telegram, no privado e no grupo da família. Ele usa o catálogo inteiro do MCP (`docs/agente-conectar.md`, seção 11), com o mesmo manual de operação, grava em nome de quem escreveu, manda de manhã o que pede atenção e às 22h quem fez o quê. Uma data prevista (a próxima troca de óleo) vira pendência em Próximos; a quilometragem vai no hodômetro do carro. Se a gravação falha, ele diz que não gravou, em vez de confirmar.
 
 Tudo é configurado no app, em **Agentes → Bot** (`/agentes/bot`), só pela conta master. A única variável de ambiente é `CASA_SECRET_KEY`.
 
@@ -84,7 +84,7 @@ Cada pessoa entra com a própria conta, abre **Agentes** e toca em **Conectar Te
 2. Se o bot já estava no grupo antes do `/setprivacy` Disable, tire e adicione de novo.
 3. Converse normalmente. Para pedir algo, chame o bot: `@nome_do_bot anota a vacina para sexta` ou pelo nome do seu agente.
 
-O resumo do dia passa a ir para o grupo (e não mais para o privado).
+O resumo da manhã passa a ir para o grupo (e não mais para o privado). Às 22h (fuso de Brasília) o bot manda o fechamento do dia: quem fez tarefa, pagamento e checklist. O mesmo texto está em **Hoje** no app, e atualiza sozinho durante o dia. `/resumo_off` desliga os dois envios; `/resumo_on` liga de novo.
 
 ## Rotas
 
@@ -92,8 +92,9 @@ O resumo do dia passa a ir para o grupo (e não mais para o privado).
 | --- | --- | --- |
 | `POST /api/telegram/webhook` | Telegram | header `X-Telegram-Bot-Api-Secret-Token`; responde 200 depois da checagem para o Telegram não reenviar |
 | `GET /api/telegram/digest` | Vercel Cron, `0 10 * * *` (07:00 BRT) | `CRON_SECRET` se existir; no máximo um resumo por chat por dia |
+| `GET /api/telegram/report` | Vercel Cron, `0 1 * * *` (22:00 BRT) | `CRON_SECRET` se existir; no máximo um fechamento por chat por dia, separado do da manhã |
 
-No plano Hobby da Vercel o cron roda uma vez por dia e pode atrasar até 59 minutos (entre 07:00 e 07:59).
+No plano Hobby da Vercel cada cron roda uma vez por dia e pode atrasar até 59 minutos. O das 22h ainda cai na mesma noite. A migration `010_day_report` guarda o dia do último fechamento.
 
 ## Testes
 

@@ -11,6 +11,8 @@ import { getBudgetView } from "@/lib/services/finance/budgets";
 import { clockFor, fallbackSettings, readSettings } from "@/lib/services/settings";
 import type { AgendaSnapshot } from "@/lib/services/google-calendar";
 import { listHouseholdAgenda } from "@/lib/services/google-calendar";
+import { loadDayReport } from "@/lib/services/day-report";
+import type { DayReport } from "@/lib/domain/day-report";
 import { fetchWeather, type WeatherSnapshot } from "@/lib/weather/open-meteo";
 
 export type DashboardData =
@@ -40,6 +42,8 @@ export type DashboardData =
       subjects: Partial<Record<Domain, SubjectLink[]>>;
       /** null when nobody has connected Google Agenda, or the agenda could not be read. */
       agenda: AgendaSnapshot | null;
+      /** null when today's deeds could not be read. Live, not a stored snapshot. */
+      day: DayReport | null;
       finance: DashboardFinance | null;
     };
 
@@ -68,14 +72,15 @@ async function loadFromDatabase(sql: Sql): Promise<DashboardData> {
   try {
     const settings = await readSettings(sql);
     const today = todayInTimeZone(settings.timezone);
-    const [attention, weather, subjects, finance, agenda] = await Promise.all([
+    const [attention, weather, subjects, finance, agenda, day] = await Promise.all([
       listAttention(sql, { today, withinDays: 14, domain: null, clock: clockFor(settings) }),
       fetchWeather(settings),
       loadSubjects(sql),
       loadFinance(sql, today),
       loadAgenda(sql, today, settings.timezone),
+      loadDay(sql, today, settings.timezone),
     ]);
-    return { status: "ready", settings, weather, today, ...attention, subjects, finance, agenda };
+    return { status: "ready", settings, weather, today, ...attention, subjects, finance, agenda, day };
   } catch (error) {
     const weather = await fetchWeather(fallback);
     if (isMissingSchema(error)) {
@@ -83,6 +88,16 @@ async function loadFromDatabase(sql: Sql): Promise<DashboardData> {
     }
     console.error(error);
     return { status: "error", settings: { ...fallback, ...DEFAULT_LOCATION }, weather };
+  }
+}
+
+/** Today's tasks, payments and checklist. Never breaks the dashboard. */
+async function loadDay(sql: Sql, today: string, timeZone: string): Promise<DayReport | null> {
+  try {
+    return await loadDayReport(sql, { day: today, timeZone });
+  } catch (error) {
+    if (!isMissingSchema(error)) console.error("day report failed");
+    return null;
   }
 }
 

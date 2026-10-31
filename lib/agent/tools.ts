@@ -38,6 +38,8 @@ import { patchSettings, readSettings } from "@/lib/services/settings";
 import { createDog, createFamily, createVehicle, listDogs, listFamily, listVehicles, updateDog, updateFamily, updateVehicle } from "@/lib/services/subjects";
 import { isIsoDate, isUuid } from "@/lib/domain/dates";
 import { createAgendaEvent, listHouseholdAgenda } from "@/lib/services/google-calendar";
+import { loadDayReport } from "@/lib/services/day-report";
+import { parseReportDay } from "@/lib/domain/day-report";
 import { fetchWeather } from "@/lib/weather/open-meteo";
 
 export type ToolContext = { sql: Sql; today: string; clock: Clock };
@@ -888,6 +890,23 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
       const draft = must(parseAgendaCreate(raw, clock.timeZone), "agenda");
       const created = await createAgendaEvent(sql, draft, clock.timeZone);
       return { event: created.event, idempotent_replay: created.idempotentReplay };
+    },
+  },
+  {
+    name: "relatorio_do_dia",
+    title: "Quem fez o quê",
+    description: "Lê tarefas, pagamentos e checklist registrados num dia, agrupados por quem fez. Sem data, é hoje. Não grava nada.",
+    inputSchema: {
+      type: "object",
+      properties: { date: date("AAAA-MM-DD. Omit for today. A future day is rejected.") },
+      additionalProperties: false,
+    },
+    writes: false,
+    async run(args, { sql, today, clock }) {
+      const raw = only(args, ["date"]);
+      const day = must(parseReportDay(raw.date, today), "day");
+      const report = await loadDayReport(sql, { day, timeZone: clock.timeZone });
+      return { ...report, timezone: clock.timeZone };
     },
   },
 ];

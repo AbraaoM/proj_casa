@@ -81,6 +81,11 @@ The app surfaces what needs attention, timelines, and history. It does **not** a
 - One routine per room and task. Use `routineKey(area, task)` (`rotina:<area>:<slug>`) as the `external_key`, so a repeated setup does not duplicate.
 - The panel records who did each task (one tap, "Feito agora"). There is no assignment or rotation. The app never shows the agent's name: it says "seu agente".
 
+## Day report (who did what)
+- `/hoje` reads the day live from `care_events` and `fin_transactions`. Nothing is snapshotted. A house routine (days or months, not hourly) is checklist. Any other live event is a task. An expense that is not the cost of one of those events is a payment, so a task with a cost is not listed twice.
+- Today refreshes itself while the page is open. Another day is `?dia=AAAA-MM-DD`, never a future day. `?q=` only filters what is already on the screen.
+- `relatorio_do_dia` and `GET /api/agent/day` return the same groups. At 22:00 America/Sao_Paulo the Telegram bot sends that text to the chats that already receive the morning digest (`GET /api/telegram/report`, cron `0 1 * * *`). One send per chat per day, claimed apart from the morning summary. Say "seu agente", never a stored agent name.
+
 ## Never break the core experience
 The person will use this daily. A broken screen or wrong recommendation creates distrust.
 - Prefer Server Components when possible.

@@ -8,7 +8,7 @@ const CATALOG = [
   "registrar_evento", "anular_evento", "registrar_custo",
   "cadastrar", "clima",
   "resumo_financeiro", "listar_financas", "criar_conta", "conta_a_pagar", "pagar_conta",
-  "definir_orcamento", "conferir_conta", "ajustar_casa", "agenda_proximos", "agenda_criar",
+  "definir_orcamento", "conferir_conta", "ajustar_casa", "agenda_proximos", "agenda_criar", "relatorio_do_dia",
 ] as const;
 
 /** Money fields only where the person stated the number. No free-floating transaction. */
@@ -99,6 +99,9 @@ describe("agent tool catalog", () => {
     await expect(tool("agenda_criar").run({ title: "Dentista", starts_at: "amanhã" }, context)).rejects.toMatchObject({ code: "validation_error" });
     expect(tool("agenda_proximos").writes).toBe(false);
     expect(tool("agenda_criar").writes).toBe(true);
+    await expect(tool("relatorio_do_dia").run({ date: "2099-01-01" }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("relatorio_do_dia").run({ extra: true }, context)).rejects.toMatchObject({ code: "validation_error" });
+    expect(tool("relatorio_do_dia").writes).toBe(false);
   });
 
   test("tasks that usually cost money ask for the cost; others do not", () => {
