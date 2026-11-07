@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   description: "O que pede atenção em casa.",
   robots: { index: false, follow: false },
   applicationName: "Casa",
-  appleWebApp: { capable: true, title: "Casa", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Casa", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

@@ -72,6 +72,7 @@ The app surfaces what needs attention, timelines, and history. It does **not** a
 - Business logic lives in dedicated modules (not mixed with UI components).
 - Panel input is one-tap buttons only. **Owner-approved exceptions:** the admin-only bot settings page (`/agentes/bot`) has a small form (AI provider, model, base URL, AI API key, Telegram bot token) plus buttons (save, enable/disable, register webhook, test, rotate webhook secret); and the list search (`?q=`, component `ListSearch`) which only filters what is already on the screen and writes nothing. Do not add other text-entry forms without the owner's approval.
 - Bot and integration secrets live in the database, encrypted with AES-256-GCM under one master key, `CASA_SECRET_KEY` (32 random bytes, base64). Never return a saved secret to the client: show the last 4 characters only. Log who changed what and when, never the values.
+- The installed phone app is a PWA: `app/manifest.ts` (`display: standalone`), `public/sw.js` (network for pages and `/api/`, offline fallback `public/offline.html`), and the one-tap **Instalar** button (`components/pwa/install.tsx`). Do not cache HTML or API responses. `/sw.js` and `/offline.html` stay public in the proxy. The service worker registers only in production.
 
 ## House routines (the /casa checklist)
 - A routine is a house item (`domain: "house"`) with `interval_days` or `interval_months` and no `interval_hours`. It needs no new table: the checklist reads `care_items` plus the latest non-voided `care_events`.
