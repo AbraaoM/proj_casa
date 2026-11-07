@@ -21,3 +21,14 @@ export function installOffer(input: {
   if (input.ios) return "ios";
   return "none";
 }
+
+/**
+ * Long-press on the installed icon. Android shows four.
+ * The icon itself already opens the panel, so these are the other doors.
+ */
+export const APP_SHORTCUTS = [
+  { name: "Casa", short_name: "Casa", description: "Checklist da casa", url: "/casa" },
+  { name: "Hoje", short_name: "Hoje", description: "Quem fez o quê hoje", url: "/hoje" },
+  { name: "Finanças", short_name: "Finanças", description: "Contas e gastos", url: "/financas" },
+  { name: "Agenda", short_name: "Agenda", description: "Compromissos da casa", url: "/agenda" },
+] as const;
