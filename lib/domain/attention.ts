@@ -103,6 +103,11 @@ export function summarizeAttention(
   return summary;
 }
 
+/** What the phone icon should count: late, or due today. The rest can wait. */
+export function pressingCount(summary: Pick<AttentionSummary, "overdue" | "due_today">): number {
+  return summary.overdue + summary.due_today;
+}
+
 /** "HH:mm" of the next dose in the household time zone, or null. */
 export function nextDueTime(item: { next_due_at?: string | null }, clock: Clock | null): string | null {
   return clock && item.next_due_at ? localTime(item.next_due_at, clock.timeZone) : null;

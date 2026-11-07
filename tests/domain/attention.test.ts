@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   attentionState,
+  pressingCount,
   sortAttention,
   summarizeAttention,
 } from "@/lib/domain/attention";
@@ -135,6 +136,7 @@ describe("summarizeAttention", () => {
     expect(summary.due_today).toBe(1);
     expect(summary.upcoming).toBe(1);
     expect(summary.undated).toBe(1);
+    expect(pressingCount(summary)).toBe(2);
     expect(summary.by_domain.dog).toEqual({
       overdue: 1,
       due_soon: 1,

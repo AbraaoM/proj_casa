@@ -14,7 +14,7 @@ Só leitura. `/` mostra o que pede atenção. No card da Casa, o painel lista no
 
 O painel só escreve por botões de um toque: **Paguei**, **Dose dada**, **Feito**, **+1 dia**, **Ignorar** (pula para o próximo ciclo) e Confirmar/Dispensar de conta sugerida. O campo **Buscar** nas listas só filtra (`?q=`). Não há outro formulário fora do login, da administração e da configuração do bot (`/agentes/bot`, só a conta master, exceção aprovada pelo dono). Cada toque é idempotente e mostra **Desfazer** por 5 s; desfazer anula o registro, não apaga. O normal continua sendo o dono pedir ao agente no chat. Detalhes para o agente: `docs/agente-conectar.md`.
 
-No telefone, a Casa instala como app (tela cheia, ícone na tela inicial). O Chrome oferece **Instalar**; no iPhone o caminho é Compartilhar → Adicionar à Tela de Início. Sem rede, a tela instalada avisa em vez de quebrar. Os dados continuam vindo do servidor quando há conexão.
+No telefone, a Casa instala como app (tela cheia, ícone na tela inicial). O Chrome oferece **Instalar**; no iPhone o caminho é Compartilhar → Adicionar à Tela de Início. Segurar o ícone abre Casa, Hoje, Finanças e Agenda. O número no ícone é o que está atrasado ou vence hoje. Sem rede, a tela instalada avisa em vez de quebrar. Os dados continuam vindo do servidor quando há conexão.
 
 ## Stack
 

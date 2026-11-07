@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { HomeDashboard } from "@/components/dashboard/home-dashboard";
 import { Landing } from "@/components/landing/landing";
 import { AppShell } from "@/components/nav/app-shell";
+import { AppBadge } from "@/components/pwa/badge";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { currentUser } from "@/lib/auth/session";
+import { pressingCount } from "@/lib/domain/attention";
 import { loadDashboard } from "@/lib/services/dashboard";
 import { searchQuery } from "@/lib/ui/search";
 
@@ -32,5 +34,11 @@ export default async function HomePage({ searchParams }: { searchParams?: Promis
 
 async function Dashboard({ query = "" }: { query?: string } = {}) {
   const data = await loadDashboard();
-  return <HomeDashboard data={data} query={query} />;
+  const badge = data.status === "ready" ? pressingCount(data.summary) : null;
+  return (
+    <>
+      <AppBadge count={badge} />
+      <HomeDashboard data={data} query={query} />
+    </>
+  );
 }

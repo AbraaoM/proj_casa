@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountUser } from "@/lib/auth/types";
 
 const state = vi.hoisted(() => ({ user: null as AccountUser | null }));
-const loadDashboard = vi.hoisted(() => vi.fn(async () => ({ status: "ready" })));
+const loadDashboard = vi.hoisted(() => vi.fn(async () => ({ status: "ready", summary: { overdue: 0, due_today: 0 } })));
 
 vi.mock("@/lib/auth/session", () => ({ currentUser: async () => state.user }));
 vi.mock("@/lib/services/dashboard", () => ({ loadDashboard }));
