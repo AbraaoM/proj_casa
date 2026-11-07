@@ -16,6 +16,7 @@ import { parseAreaCreate, parseAreaPatch } from "@/lib/domain/areas";
 import { parseDogCreate, parseDogPatch, parseFamilyCreate, parseFamilyPatch, parseSettingsPatch, parseVehicleCreate, parseVehiclePatch } from "@/lib/domain/entities";
 import { parseCreateEvent, parseEventPatch } from "@/lib/domain/events";
 import { ACCOUNT_KINDS, BILL_FREQUENCIES, BILL_KINDS } from "@/lib/domain/finance/types";
+import { parseCloseBody } from "@/lib/domain/finance/close";
 import { parseAccountCreate, parseAccountPatch, parseBalanceCheck, parseBillCreate, parseBillPatch, parseBudgetPut, parseMonthQuery, parsePay } from "@/lib/domain/finance/validate";
 import { AREA_KINDS, DOMAINS, SEXES, SUBJECT_KINDS, type AttentionItem, type CareItem, type Clock, type Domain, type SubjectKind } from "@/lib/domain/types";
 import { parseCreateItem, parseDoneBody, parseItemListQuery, parseItemPatch, parseRoutineQuery } from "@/lib/domain/validate";
@@ -30,6 +31,7 @@ import { createBill, listBills, payBill, updateBill } from "@/lib/services/finan
 import { putBudgets } from "@/lib/services/finance/budgets";
 import { listCategories } from "@/lib/services/finance/categories";
 import { getFinanceSummary } from "@/lib/services/finance/summary";
+import { closeMonth, requireMonthClose } from "@/lib/services/finance/close";
 import { getSubjectHistory } from "@/lib/services/history";
 import { createItem, listItems, updateItem } from "@/lib/services/items";
 import { compactRoutine, listRoutines } from "@/lib/services/routines";
@@ -637,6 +639,45 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
       const raw = only(args, ["month"]);
       const month = must(parseMonthQuery(query(raw), today), "month");
       return { summary: await getFinanceSummary(sql, month, today) };
+    },
+  },
+  {
+    name: "fechar_mes",
+    title: "Fechar o mês",
+    description: "Fecha um mês que já terminou e grava o resumo dos gastos com a previsão do mês seguinte. Sem month, fecha o mês passado. refresh true refaz depois de uma correção. Não cria lançamento.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        month: { type: "string", pattern: "^\\d{4}-\\d{2}$", description: "YYYY-MM. Omit to close the month that just ended." },
+        refresh: { type: "boolean", description: "Rebuild an existing close after a correction." },
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["month", "refresh"]);
+      const parsed = must(parseCloseBody(raw, today), "close");
+      const result = await closeMonth(sql, parsed.month, today, parsed.refresh);
+      return { ...result.close, already_closed: result.already, pdf_path: `/api/agent/finance/closes/${result.close.month}/pdf` };
+    },
+  },
+  {
+    name: "pdf_fechamento",
+    title: "PDF do fechamento",
+    description: "Lê o fechamento de um mês já fechado e devolve o caminho do PDF. Busque esse caminho com a mesma chave para obter o arquivo. Não fecha o mês e não grava nada.",
+    inputSchema: {
+      type: "object",
+      properties: { month: { type: "string", pattern: "^\\d{4}-\\d{2}$", description: "YYYY-MM of a month that was already closed." } },
+      required: ["month"],
+      additionalProperties: false,
+    },
+    writes: false,
+    async run(args, { sql }) {
+      const raw = only(args, ["month"]);
+      const month = typeof raw.month === "string" ? raw.month : "";
+      const parsed = must(parseCloseBody({ month }, "2026-01-15"), "close");
+      const close = await requireMonthClose(sql, parsed.month);
+      return { ...close, pdf_path: `/api/agent/finance/closes/${close.month}/pdf` };
     },
   },
   {

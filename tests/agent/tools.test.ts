@@ -7,7 +7,7 @@ const CATALOG = [
   "adicionar_item", "atualizar_item", "marcar_feito", "registrar_dose", "listar_doses",
   "registrar_evento", "anular_evento", "registrar_custo",
   "cadastrar", "clima",
-  "resumo_financeiro", "listar_financas", "criar_conta", "conta_a_pagar", "pagar_conta",
+  "resumo_financeiro", "fechar_mes", "pdf_fechamento", "listar_financas", "criar_conta", "conta_a_pagar", "pagar_conta",
   "definir_orcamento", "conferir_conta", "ajustar_casa", "agenda_proximos", "agenda_criar", "relatorio_do_dia",
 ] as const;
 
@@ -102,6 +102,15 @@ describe("agent tool catalog", () => {
     await expect(tool("relatorio_do_dia").run({ date: "2099-01-01" }, context)).rejects.toMatchObject({ code: "validation_error" });
     await expect(tool("relatorio_do_dia").run({ extra: true }, context)).rejects.toMatchObject({ code: "validation_error" });
     expect(tool("relatorio_do_dia").writes).toBe(false);
+  });
+
+  test("fechar_mes refuses the current month and unknown fields before the database", async () => {
+    await expect(tool("fechar_mes").run({ month: "2026-10" }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("fechar_mes").run({ month: "2026-09", extra: true }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("pdf_fechamento").run({ month: "2026-13" }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("pdf_fechamento").run({}, context)).rejects.toMatchObject({ code: "validation_error" });
+    expect(tool("fechar_mes").writes).toBe(true);
+    expect(tool("pdf_fechamento").writes).toBe(false);
   });
 
   test("tasks that usually cost money ask for the cost; others do not", () => {

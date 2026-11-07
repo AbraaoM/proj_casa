@@ -1,5 +1,6 @@
 import { CircleAlert } from "lucide-react";
 import { FinancePage } from "@/components/finance/finance-page";
+import { MonthClose } from "@/components/finance/month-close";
 import { MonthNav } from "@/components/finance/month-nav";
 import { BillActions } from "@/components/one-tap/item-actions";
 import { SuggestedBills } from "@/components/finance/suggested-bills";
@@ -9,6 +10,7 @@ import { EmptyNote } from "@/components/ui/attention-mark";
 import { RowLink } from "@/components/ui/more-link";
 import { monthLabel } from "@/lib/domain/history";
 import { loadFinanceMonth } from "@/lib/services/finance-pages";
+import { loadCloseOffer } from "@/lib/services/finance/close";
 import { budgetRatio } from "@/lib/ui/finance";
 import { formatDate, formatMoney } from "@/lib/ui/format";
 
@@ -25,6 +27,7 @@ export default async function FinancePageRoute({ searchParams }: Props) {
   const page = await loadFinanceMonth(mes);
   if (page.status !== "ready") return <PageNotice status={page.status} />;
   const summary = page.data;
+  const offer = await loadCloseOffer(summary.month);
   const monthName = monthLabel(summary.month).split(" ")[0]?.toLocaleLowerCase("pt-BR") ?? "";
   const soon = summary.bills_due.filter((bill) => bill.days_until_due <= SOON_DAYS);
   const budgetBySlug = new Map(summary.budget.lines.map((line) => [line.slug, line]));
@@ -34,6 +37,7 @@ export default async function FinancePageRoute({ searchParams }: Props) {
 
   return (
     <FinancePage tab="mes" month={summary.month} eyebrow="Dinheiro da casa" title="Finanças" aside={<MonthNav month={summary.month} basePath="/financas" />}>
+      {offer ? <MonthClose offer={offer} /> : null}
       <div className="mt-6 grid gap-x-6 md:grid-cols-2 md:items-start">
         <div className="min-w-0">
           <section aria-label="Saldo" className={`${CARD} pb-4`}>
