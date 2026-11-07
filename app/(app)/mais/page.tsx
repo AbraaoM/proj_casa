@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronRight, LogOut } from "lucide-react";
 import { NAV_ICONS } from "@/components/nav/nav-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { InstallRow } from "@/components/pwa/install";
 import { logoutAction } from "@/lib/auth/actions";
 import { currentUser } from "@/lib/auth/session";
 import { MORE_ENTRIES } from "@/lib/ui/nav";
@@ -32,6 +33,7 @@ export default async function MorePage() {
           );
         })}
       </ul>
+      <InstallRow />
       <div className="mt-8 flex items-center justify-between border-t border-line pt-4 dark:border-line-dark">
         <span className="text-sm text-ink-muted">Tema</span>
         <ThemeToggle />

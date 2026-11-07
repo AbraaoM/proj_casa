@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BottomBar, Sidebar, TopBar } from "@/components/nav/app-nav";
+import { InstallBanner } from "@/components/pwa/install";
 import type { AccountUser } from "@/lib/auth/types";
 import { UndoProvider } from "@/components/one-tap/undo-bar";
 
@@ -15,6 +16,7 @@ export function AppShell({ user, children }: { user: AccountUser; children: Reac
         <div className="pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">{children}</div>
       </UndoProvider>
       <BottomBar />
+      <InstallBanner />
     </div>
   );
 }

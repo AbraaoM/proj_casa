@@ -6,6 +6,8 @@ describe("proxy decision", () => {
     expect(proxyDecision("/", false)).toBe("pass");
     expect(proxyDecision("/login", false)).toBe("pass");
     expect(proxyDecision("/manifest.webmanifest", false)).toBe("pass");
+    expect(proxyDecision("/sw.js", false)).toBe("pass");
+    expect(proxyDecision("/offline.html", false)).toBe("pass");
   });
 
   it("still sends the private pages to /login without a session", () => {
