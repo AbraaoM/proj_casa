@@ -117,6 +117,31 @@ curl -X PUT "$CASA_URL/api/agent/finance/budgets" ... -d '{ "month": null, "item
 
 `GET /finance/summary?month=2026-10` é a chamada para "como estão as finanças": entradas, saídas, resultado, saídas por categoria (com filhas), entradas por categoria, saldo por conta e patrimônio (ativos − dívidas), orçamento e estouros, contas a vencer em 30 dias (com atrasadas), sugestões pendentes, últimos lançamentos e `without_account_count` (lançamentos sem conta, que não mexem em saldo).
 
+## Fechamento do mês
+
+Um mês só fecha depois que termina. Em novembro, outubro pode ser fechado. O dono toca **Fechar** em Finanças, ou o agente chama `fechar_mes` (sem `month`, fecha o mês passado).
+
+O que fica gravado:
+
+- o que entrou, o que saiu e o resultado
+- o gasto por categoria
+- a previsão do mês seguinte, por categoria: o orçamento daquele mês, se existir; senão o valor mensal das contas ativas que se repetem; senão o gasto deste mês. A entrada prevista usa as contas de entrada, ou repete a entrada deste mês.
+
+Fechar não trava lançamento e não cria nenhum. Se faltar um recibo, corrija e chame de novo com `{ "refresh": true }`.
+
+O PDF:
+
+```bash
+curl -sS -X POST "$CASA_URL/api/agent/finance/closes" \
+  -H "Authorization: Bearer $AGENT_API_KEY" -H "Content-Type: application/json" \
+  -d '{ "month": "2026-10" }'
+
+curl -sS "$CASA_URL/api/agent/finance/closes/2026-10/pdf" \
+  -H "Authorization: Bearer $AGENT_API_KEY" -o casa-fechamento-2026-10.pdf
+```
+
+`pdf_fechamento` devolve `pdf_path`. O arquivo é o `GET` desse caminho, com a mesma chave. Quem está logado abre `/financas/fechamento/2026-10`.
+
 ## Fora do escopo, por enquanto
 
 Metas de economia, importação de OFX/CSV do banco, várias moedas, investimentos com cotação e relatórios fiscais.

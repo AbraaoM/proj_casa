@@ -87,6 +87,11 @@ The app surfaces what needs attention, timelines, and history. It does **not** a
 - Today refreshes itself while the page is open. Another day is `?dia=AAAA-MM-DD`, never a future day. `?q=` only filters what is already on the screen.
 - `relatorio_do_dia` and `GET /api/agent/day` return the same groups. At 22:00 America/Sao_Paulo the Telegram bot sends that text to the chats that already receive the morning digest (`GET /api/telegram/report`, cron `0 1 * * *`). One send per chat per day, claimed apart from the morning summary. Say "seu agente", never a stored agent name.
 
+## Month close (finance)
+- A month can be closed only after it ends. November closes October. The screen offers one tap (`Fechar`), and `fechar_mes` does the same. Closing stores a snapshot; it does not lock transactions and does not create one.
+- The forecast for the next month, per expense category: that month's budget if one is set, otherwise the monthly cost of active repeating bills, otherwise this month's spending. Income uses active income bills, or repeats this month.
+- `pdf_fechamento` and `GET /api/agent/finance/closes/:month/pdf` return the PDF of a closed month. The logged-in screen uses `/financas/fechamento/:month`. Rebuild a close after a correction with `fechar_mes` `refresh: true` only. Do not invent figures.
+
 ## Never break the core experience
 The person will use this daily. A broken screen or wrong recommendation creates distrust.
 - Prefer Server Components when possible.

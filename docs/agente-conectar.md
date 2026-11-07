@@ -300,6 +300,8 @@ Ferramentas (as mesmas regras das rotas REST):
 | `cadastrar` | cria ou atualiza cão, pessoa, carro ou área | sim |
 | `clima` | tempo agora e se convém adiar o lado de fora | não |
 | `resumo_financeiro` | resumo do mês | não |
+| `fechar_mes` | fecha um mês já terminado: resumo dos gastos e previsão do seguinte | sim |
+| `pdf_fechamento` | caminho do PDF de um mês fechado (`GET` nesse caminho, mesma chave) | não |
 | `listar_financas` | contas, categorias e contas a pagar | não |
 | `criar_conta` | conta com o saldo de abertura que a pessoa disse | sim |
 | `conta_a_pagar` | cria ou corrige a conta recorrente que a pessoa confirmou | sim |
