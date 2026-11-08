@@ -92,6 +92,14 @@ The app surfaces what needs attention, timelines, and history. It does **not** a
 - The forecast for the next month, per expense category: that month's budget if one is set, otherwise the monthly cost of active repeating bills, otherwise this month's spending. Income uses active income bills, or repeats this month.
 - `pdf_fechamento` and `GET /api/agent/finance/closes/:month/pdf` return the PDF of a closed month. The logged-in screen uses `/financas/fechamento/:month`. Rebuild a close after a correction with `fechar_mes` `refresh: true` only. Do not invent figures.
 
+## Food (stock, dishes, shopping, calories)
+- `/comida` shows today's calories, the open shopping list, the pantry and the dishes. `?q=` only filters what is already on the screen.
+- The agent writes. `ver_comida`, `definir_alimento`, `definir_prato`, `adicionar_compra`, `gerar_lista`, `marcar_compra`, `registrar_refeicao`, `anular_refeicao`. The same rules are on `/api/agent/food/`.
+- Quantities are grams, millilitres or pieces (`g`, `ml`, `un`). `kcal_per_100` is only for `g` and `ml`. `kcal_each` is only for `un`.
+- A dish has a per-serving calorie total only when every ingredient has a stated `kcal` or a linked stock item with calories in the same unit. Never invent a number. A meal without a dish needs the `kcal` the person said.
+- Low stock is at or below `min_quantity`. `gerar_lista` adds the shortfall, and skips an item already on the open list. One tap on the screen does the same. **Comprado** only marks the line; it does not change stock. `marcar_compra` with `restock: true` adds the quantity, once.
+- A meal is for one day, never a future day. Voiding it (`anular_refeicao`) hides it from the day and frees the `external_key`. Nothing is deleted.
+
 ## Never break the core experience
 The person will use this daily. A broken screen or wrong recommendation creates distrust.
 - Prefer Server Components when possible.

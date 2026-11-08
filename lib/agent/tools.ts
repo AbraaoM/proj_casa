@@ -42,6 +42,8 @@ import { isIsoDate, isUuid } from "@/lib/domain/dates";
 import { createAgendaEvent, listHouseholdAgenda } from "@/lib/services/google-calendar";
 import { loadDayReport } from "@/lib/services/day-report";
 import { parseReportDay } from "@/lib/domain/day-report";
+import { parseDishCreate, parseDishPatch, parseFoodView, parseMealCreate, parseRestock, parseShoppingCreate, parseStockCreate, parseStockPatch } from "@/lib/domain/food";
+import { addShopping, buyShopping, cancelMeal, createDish, createStock, dayMeals, generateShopping, listDishes, listShopping, listStock, logMeal, presentDay, presentDish, presentMeal, presentShopping, presentStock, readDish, readStock, updateDish, updateStock } from "@/lib/services/food";
 import { fetchWeather } from "@/lib/weather/open-meteo";
 
 export type ToolContext = { sql: Sql; today: string; clock: Clock };
@@ -948,6 +950,218 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
       const day = must(parseReportDay(raw.date, today), "day");
       const report = await loadDayReport(sql, { day, timeZone: clock.timeZone });
       return { ...report, timezone: clock.timeZone };
+    },
+  },
+  {
+    name: "ver_comida",
+    title: "Comida",
+    description: "Lê o estoque, os pratos, a lista de compras ou as calorias de um dia. Sem data, calorias é hoje. Não grava nada e não inventa caloria.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        view: { type: "string", enum: ["estoque", "pratos", "compras", "calorias"], description: "O que ler." },
+        ref: str("Id or slug of one food item or dish. Optional."),
+        date: date("AAAA-MM-DD for calorias. Omit for today."),
+        include_archived: { type: "boolean", description: "Include archived stock or dishes." },
+        include_bought: { type: "boolean", description: "Include shopping lines already bought." },
+      },
+      required: ["view"],
+      additionalProperties: false,
+    },
+    writes: false,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["view", "ref", "date", "include_archived", "include_bought"]);
+      const view = parseFoodView(raw.view);
+      if (!view) throw validationError("view must be estoque, pratos, compras or calorias", [{ field: "view", message: "must be estoque, pratos, compras or calorias" }]);
+      if (raw.include_archived !== undefined && typeof raw.include_archived !== "boolean") throw validationError("include_archived must be true or false", [{ field: "include_archived", message: "must be true or false" }]);
+      if (raw.include_bought !== undefined && typeof raw.include_bought !== "boolean") throw validationError("include_bought must be true or false", [{ field: "include_bought", message: "must be true or false" }]);
+      const day = must(parseReportDay(raw.date, today), "day");
+      if (view === "calorias") return presentDay(day, await dayMeals(sql, day));
+      if (view === "compras") return { lines: (await listShopping(sql, raw.include_bought === true)).map(presentShopping) };
+      if (raw.ref !== undefined && (typeof raw.ref !== "string" || (!isUuid(raw.ref) && !/^[a-z0-9_]{1,40}$/.test(raw.ref)))) throw notFound();
+      if (view === "pratos") {
+        if (typeof raw.ref === "string") return { dish: presentDish(await readDish(sql, raw.ref)) };
+        return { dishes: (await listDishes(sql, raw.include_archived === true)).map(presentDish) };
+      }
+      if (typeof raw.ref === "string") return { item: presentStock(await readStock(sql, raw.ref, today)) };
+      return { items: (await listStock(sql, today, raw.include_archived === true)).map(presentStock) };
+    },
+  },
+  {
+    name: "definir_alimento",
+    title: "Estoque",
+    description: "Cria ou corrige um item do estoque: quantidade, mínimo, validade e calorias (kcal_per_100 para g/ml, kcal_each para un). Com id, atualiza. Sem id, cria. external_key repetida devolve o primeiro.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: str("Id or slug. Omit to create."),
+        name: str("Name, 1 to 80 characters."),
+        unit: { type: "string", enum: ["g", "ml", "un"] },
+        quantity: { type: "number", minimum: 0, description: "How much is in the pantry now." },
+        min_quantity: { type: "number", minimum: 0, description: "Buy when the stock is at or below this. null clears it." },
+        expires_on: date("AAAA-MM-DD. null clears it."),
+        kcal_per_100: int("Calories per 100 g or 100 ml. Only for g and ml."),
+        kcal_each: int("Calories of one piece. Only for un."),
+        archived: { type: "boolean" },
+        external_key: externalKey,
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["id", "name", "unit", "quantity", "min_quantity", "expires_on", "kcal_per_100", "kcal_each", "archived", "external_key"]);
+      if (raw.id !== undefined) {
+        if (typeof raw.id !== "string" || (!isUuid(raw.id) && !/^[a-z0-9_]{1,40}$/.test(raw.id))) throw notFound("Food item was not found.");
+        if ("external_key" in raw) throw validationError("external_key is only for a new item", [{ field: "external_key", message: "is only for a new item" }]);
+        const { id, ...rest } = raw;
+        const patch = must(parseStockPatch(rest), "stock");
+        return { item: presentStock(await updateStock(sql, id, patch, today)) };
+      }
+      const draft = must(parseStockCreate(raw), "stock");
+      const result = await createStock(sql, draft, today);
+      return { item: presentStock(result.item), idempotent_replay: result.idempotent_replay };
+    },
+  },
+  {
+    name: "definir_prato",
+    title: "Prato",
+    description: "Cria ou corrige um prato e os ingredientes. A caloria por porção só sai quando cada ingrediente tem kcal ou aponta para um alimento com caloria na mesma unidade. Não invente kcal.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: str("Id or slug. Omit to create."),
+        name: str("Dish name."),
+        servings: int("How many portions the recipe yields, from 1 to 50. Default 1."),
+        notes: str("Optional note, up to 500 characters."),
+        archived: { type: "boolean" },
+        external_key: externalKey,
+        ingredients: {
+          type: "array",
+          maxItems: 40,
+          items: {
+            type: "object",
+            properties: {
+              name: str("Ingredient name. Optional when food_item_id is set."),
+              quantity: { type: "number", exclusiveMinimum: 0 },
+              unit: { type: "string", enum: ["g", "ml", "un"] },
+              food_item_id: uuid("Stock item this ingredient uses."),
+              kcal: int("Calories of this amount, when the person or the recipe says so."),
+            },
+            required: ["quantity", "unit"],
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["id", "name", "servings", "notes", "archived", "external_key", "ingredients"]);
+      if (raw.id !== undefined) {
+        if (typeof raw.id !== "string" || (!isUuid(raw.id) && !/^[a-z0-9_]{1,40}$/.test(raw.id))) throw notFound("Dish was not found.");
+        if ("external_key" in raw) throw validationError("external_key is only for a new dish", [{ field: "external_key", message: "is only for a new dish" }]);
+        const { id, ...rest } = raw;
+        return { dish: presentDish(await updateDish(sql, id, must(parseDishPatch(rest), "dish"))) };
+      }
+      const result = await createDish(sql, must(parseDishCreate(raw), "dish"));
+      return { dish: presentDish(result.dish), idempotent_replay: result.idempotent_replay };
+    },
+  },
+  {
+    name: "adicionar_compra",
+    title: "Lista de compras",
+    description: "Acrescenta um item na lista de compras. Com food_item_id, o nome pode vir do estoque. Um alimento que já está na lista aberta não é duplicado.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: str("What to buy. Optional when food_item_id is set."),
+        quantity: { type: "number", exclusiveMinimum: 0 },
+        unit: { type: "string", enum: ["g", "ml", "un"] },
+        food_item_id: uuid("Stock item, when this line refills one."),
+        external_key: externalKey,
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["name", "quantity", "unit", "food_item_id", "external_key"]);
+      const result = await addShopping(sql, must(parseShoppingCreate(raw), "shopping"));
+      return { line: presentShopping(result.line), idempotent_replay: result.idempotent_replay };
+    },
+  },
+  {
+    name: "gerar_lista",
+    title: "Lista a partir do estoque",
+    description: "Coloca na lista o que está no mínimo ou abaixo. A quantidade é o que falta para o mínimo. O que já está na lista aberta não entra de novo.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    writes: true,
+    async run(args, { sql, today }) {
+      only(args, []);
+      const result = await generateShopping(sql, today);
+      return { added: result.added.map(presentShopping) };
+    },
+  },
+  {
+    name: "marcar_compra",
+    title: "Marcar comprado",
+    description: "Marca um item da lista como comprado. restock true soma a quantidade no estoque ligado, só se a linha tiver quantidade. Comprar de novo não soma duas vezes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: uuid("Shopping line id."),
+        restock: { type: "boolean", description: "Add the quantity back to the linked stock item. Default false." },
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["id", "restock"]);
+      if (typeof raw.id !== "string" || !isUuid(raw.id)) throw notFound("Shopping line was not found.");
+      const parsed = must(parseRestock({ restock: raw.restock }), "buy");
+      const result = await buyShopping(sql, raw.id, parsed.restock);
+      return { line: presentShopping(result.line), already: result.already };
+    },
+  },
+  {
+    name: "registrar_refeicao",
+    title: "Refeição",
+    description: "Registra o que foi comido e as calorias. Com dish_id, usa a caloria por porção do prato vezes as porções. Sem prato, title e kcal são o que a pessoa disse. Não invente kcal. Um dia futuro é recusado.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eaten_on: date("AAAA-MM-DD. Omit for today. Not a future day."),
+        family_member_id: uuid("Who ate. Omit for the household."),
+        dish_id: uuid("Dish. Calories come from it unless kcal is set."),
+        title: str("What was eaten, when there is no dish or you want another name."),
+        servings: { type: "number", exclusiveMinimum: 0, maximum: 20, description: "Portions eaten. Default 1." },
+        kcal: int("Calories of this meal, when the person says the number."),
+        external_key: externalKey,
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["eaten_on", "family_member_id", "dish_id", "title", "servings", "kcal", "external_key"]);
+      const result = await logMeal(sql, must(parseMealCreate(raw, today), "meal"));
+      return { meal: presentMeal(result.meal), idempotent_replay: result.idempotent_replay };
+    },
+  },
+  {
+    name: "anular_refeicao",
+    title: "Anular refeição",
+    description: "Anula uma refeição registrada. Ela sai das calorias do dia e a external_key fica livre. Nada é apagado.",
+    inputSchema: {
+      type: "object",
+      properties: { meal_id: uuid("Meal id.") },
+      required: ["meal_id"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["meal_id"]);
+      if (typeof raw.meal_id !== "string" || !isUuid(raw.meal_id)) throw notFound("Meal was not found.");
+      return cancelMeal(sql, raw.meal_id);
     },
   },
 ];
