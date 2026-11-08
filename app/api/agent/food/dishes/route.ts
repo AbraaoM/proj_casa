@@ -15,6 +15,6 @@ export async function POST(request: Request) {
     const parsed = parseDishCreate(await readJson(request));
     if (!parsed.ok) throw invalid(parsed.details, "Invalid dish.");
     const result = await createDish(requireSql(), parsed.value);
-    return jsonOk({ dish: presentDish(result.dish) }, { idempotent_replay: result.idempotent_replay }, result.idempotent_replay ? 200 : 201);
+    return jsonOk({ dish: presentDish(result.dish), taco_candidates: result.taco_candidates }, { idempotent_replay: result.idempotent_replay }, result.idempotent_replay ? 200 : 201);
   });
 }

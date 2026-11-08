@@ -43,7 +43,8 @@ import { createAgendaEvent, listHouseholdAgenda } from "@/lib/services/google-ca
 import { loadDayReport } from "@/lib/services/day-report";
 import { parseReportDay } from "@/lib/domain/day-report";
 import { parseDishCreate, parseDishPatch, parseFoodView, parseMealCreate, parseRestock, parseShoppingCreate, parseStockCreate, parseStockPatch } from "@/lib/domain/food";
-import { addShopping, buyShopping, cancelMeal, createDish, createStock, dayMeals, generateShopping, listDishes, listShopping, listStock, logMeal, presentDay, presentDish, presentMeal, presentShopping, presentStock, readDish, readStock, updateDish, updateStock } from "@/lib/services/food";
+import { resolveTaco, searchTaco } from "@/lib/domain/food/taco";
+import { addShopping, buyShopping, cancelMeal, createDish, createStock, dayMeals, dishTacoGaps, generateShopping, listDishes, listShopping, listStock, logMeal, presentDay, presentDish, presentMeal, presentShopping, presentStock, readDish, readStock, updateDish, updateStock } from "@/lib/services/food";
 import { fetchWeather } from "@/lib/weather/open-meteo";
 
 export type ToolContext = { sql: Sql; today: string; clock: Clock };
@@ -955,7 +956,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
   {
     name: "ver_comida",
     title: "Comida",
-    description: "Lê o estoque, os pratos, a lista de compras ou as calorias de um dia. Sem data, calorias é hoje. Não grava nada e não inventa caloria.",
+    description: "Lê o estoque, os pratos, a lista de compras ou as calorias de um dia. Sem data, calorias é hoje. Não grava nada. A caloria vem da TACO; não invente número.",
     inputSchema: {
       type: "object",
       properties: {
@@ -988,9 +989,36 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
     },
   },
   {
+    name: "buscar_taco",
+    title: "Tabela TACO",
+    description: "Busca um alimento na tabela TACO (NEPA/UNICAMP, 4ª edição) e devolve kcal por 100 g, o id e, quando existe, o peso de uma peça. Não grava nada. Use o id em definir_alimento (taco_id) ou no ingrediente. Não peça caloria à pessoa. Nome ambíguo volta em candidates, sem escolha.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        q: str("Food name, as the person said it."),
+        limit: int("How many candidates, from 1 to 10. Default 5."),
+      },
+      required: ["q"],
+      additionalProperties: false,
+    },
+    writes: false,
+    async run(args) {
+      const raw = only(args, ["q", "limit"]);
+      if (typeof raw.q !== "string" || raw.q.trim().length === 0 || raw.q.trim().length > 80) {
+        throw validationError("q is required", [{ field: "q", message: "is required" }]);
+      }
+      if (raw.limit !== undefined && (typeof raw.limit !== "number" || !Number.isInteger(raw.limit) || raw.limit < 1 || raw.limit > 10)) {
+        throw validationError("limit must be an integer from 1 to 10", [{ field: "limit", message: "must be an integer from 1 to 10" }]);
+      }
+      const query = raw.q.trim();
+      const limit = typeof raw.limit === "number" ? raw.limit : 5;
+      return { query, stock: resolveTaco(query, "stock").choice, dish: resolveTaco(query, "dish").choice, candidates: searchTaco(query, limit) };
+    },
+  },
+  {
     name: "definir_alimento",
     title: "Estoque",
-    description: "Cria ou corrige um item do estoque: quantidade, mínimo, validade e calorias (kcal_per_100 para g/ml, kcal_each para un). Com id, atualiza. Sem id, cria. external_key repetida devolve o primeiro.",
+    description: "Cria ou corrige um item do estoque: nome, quantidade, mínimo e validade. A caloria vem da TACO pelo nome (cru no estoque). Não pergunte kcal. Se voltar taco_candidates, escolha a linha mais próxima e chame de novo com taco_id. kcal_per_100 ou kcal_each só se a pessoa falou um número. Com id, atualiza. external_key repetida devolve o primeiro.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1000,8 +1028,9 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
         quantity: { type: "number", minimum: 0, description: "How much is in the pantry now." },
         min_quantity: { type: "number", minimum: 0, description: "Buy when the stock is at or below this. null clears it." },
         expires_on: date("AAAA-MM-DD. null clears it."),
-        kcal_per_100: int("Calories per 100 g or 100 ml. Only for g and ml."),
-        kcal_each: int("Calories of one piece. Only for un."),
+        taco_id: int("TACO row id, from buscar_taco, when the name alone was ambiguous."),
+        kcal_per_100: int("Only when the person stated calories per 100 g or 100 ml. Do not invent."),
+        kcal_each: int("Only when the person stated calories of one piece. Do not invent."),
         archived: { type: "boolean" },
         external_key: externalKey,
       },
@@ -1009,7 +1038,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
     },
     writes: true,
     async run(args, { sql, today }) {
-      const raw = only(args, ["id", "name", "unit", "quantity", "min_quantity", "expires_on", "kcal_per_100", "kcal_each", "archived", "external_key"]);
+      const raw = only(args, ["id", "name", "unit", "quantity", "min_quantity", "expires_on", "taco_id", "kcal_per_100", "kcal_each", "archived", "external_key"]);
       if (raw.id !== undefined) {
         if (typeof raw.id !== "string" || (!isUuid(raw.id) && !/^[a-z0-9_]{1,40}$/.test(raw.id))) throw notFound("Food item was not found.");
         if ("external_key" in raw) throw validationError("external_key is only for a new item", [{ field: "external_key", message: "is only for a new item" }]);
@@ -1019,13 +1048,13 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
       }
       const draft = must(parseStockCreate(raw), "stock");
       const result = await createStock(sql, draft, today);
-      return { item: presentStock(result.item), idempotent_replay: result.idempotent_replay };
+      return { item: presentStock(result.item), idempotent_replay: result.idempotent_replay, taco_candidates: result.taco_candidates };
     },
   },
   {
     name: "definir_prato",
     title: "Prato",
-    description: "Cria ou corrige um prato e os ingredientes. A caloria por porção só sai quando cada ingrediente tem kcal ou aponta para um alimento com caloria na mesma unidade. Não invente kcal.",
+    description: "Cria ou corrige um prato e os ingredientes. A caloria sai da TACO (cozido no prato) ou do alimento do estoque na mesma unidade. Não pergunte kcal. Se um ingrediente voltar em taco_candidates, chame de novo com o taco_id dessa linha. kcal na linha só se a pessoa falou o número. Peça sem peso conhecido (carne, queijo) vai em gramas, não em un.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1045,7 +1074,8 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
               quantity: { type: "number", exclusiveMinimum: 0 },
               unit: { type: "string", enum: ["g", "ml", "un"] },
               food_item_id: uuid("Stock item this ingredient uses."),
-              kcal: int("Calories of this amount, when the person or the recipe says so."),
+              taco_id: int("TACO row id when the name alone was ambiguous."),
+              kcal: int("Only when the person stated the calories of this amount. Do not invent."),
             },
             required: ["quantity", "unit"],
             additionalProperties: false,
@@ -1061,10 +1091,11 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
         if (typeof raw.id !== "string" || (!isUuid(raw.id) && !/^[a-z0-9_]{1,40}$/.test(raw.id))) throw notFound("Dish was not found.");
         if ("external_key" in raw) throw validationError("external_key is only for a new dish", [{ field: "external_key", message: "is only for a new dish" }]);
         const { id, ...rest } = raw;
-        return { dish: presentDish(await updateDish(sql, id, must(parseDishPatch(rest), "dish"))) };
+        const dish = await updateDish(sql, id, must(parseDishPatch(rest), "dish"));
+        return { dish: presentDish(dish), taco_candidates: dishTacoGaps(dish) };
       }
       const result = await createDish(sql, must(parseDishCreate(raw), "dish"));
-      return { dish: presentDish(result.dish), idempotent_replay: result.idempotent_replay };
+      return { dish: presentDish(result.dish), idempotent_replay: result.idempotent_replay, taco_candidates: result.taco_candidates };
     },
   },
   {
@@ -1126,7 +1157,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
   {
     name: "registrar_refeicao",
     title: "Refeição",
-    description: "Registra o que foi comido e as calorias. Com dish_id, usa a caloria por porção do prato vezes as porções. Sem prato, title e kcal são o que a pessoa disse. Não invente kcal. Um dia futuro é recusado.",
+    description: "Registra o que foi comido. Com dish_id, a caloria sai do prato. Sem prato, calcule o kcal com buscar_taco (por 100 g, ou piece_grams para uma peça) e passe esse número. Não pergunte caloria à pessoa. Um dia futuro é recusado.",
     inputSchema: {
       type: "object",
       properties: {

@@ -310,15 +310,16 @@ Ferramentas (as mesmas regras das rotas REST):
 | `conferir_conta` | saldo que o banco mostrou e conciliação | sim |
 | `ajustar_casa` | lê a cidade; muda cidade ou fuso quando a pessoa pede | sim |
 | `ver_comida` | estoque, pratos, lista de compras ou calorias de um dia | não |
-| `definir_alimento` | cria ou corrige um item do estoque, com a caloria que a pessoa disse | sim |
-| `definir_prato` | cria ou corrige um prato e os ingredientes | sim |
+| `buscar_taco` | busca o alimento na tabela TACO e devolve kcal por 100 g | não |
+| `definir_alimento` | cria ou corrige o estoque; a caloria vem da TACO pelo nome | sim |
+| `definir_prato` | cria ou corrige um prato; a caloria dos ingredientes vem da TACO | sim |
 | `adicionar_compra` | acrescenta um item na lista de compras | sim |
 | `gerar_lista` | lista o que está no mínimo ou abaixo, sem duplicar | sim |
 | `marcar_compra` | marca comprado; `restock` soma no estoque só com quantidade | sim |
-| `registrar_refeicao` | o que foi comido e as calorias, do prato ou do número dito | sim |
+| `registrar_refeicao` | o que foi comido; a caloria sai do prato ou da TACO | sim |
 | `anular_refeicao` | tira a refeição das calorias do dia | sim |
 
-**Comida.** Unidade é `g`, `ml` ou `un`. `kcal_per_100` só em grama e mililitro; `kcal_each` só em unidade. O prato não ganha caloria por porção enquanto faltar número em algum ingrediente. Sem prato, `registrar_refeicao` exige o `kcal` que a pessoa falou. Não invente. Guia: `docs/agente-comida.md`.
+**Comida.** Unidade é `g`, `ml` ou `un`. A caloria vem da tabela TACO (4ª edição, NEPA/UNICAMP), por 100 g. Não pergunte kcal e não invente. Nome ambíguo devolve `taco_candidates`: escolha a linha e chame de novo com `taco_id`. `ml` usa o mesmo número por 100 g. Peça sem peso conhecido entra em gramas. Guia: `docs/agente-comida.md`.
 
 **Regra de finanças.** Nenhuma ferramenta cria lançamento por iniciativa do agente. Quando `marcar_feito` ou `registrar_evento` conclui algo que costuma custar dinheiro (consulta, vacina, troca de óleo, conserto, dentista, remédio…), a resposta traz `ask_cost: true`. O agente pergunta quanto custou e só então chama `registrar_custo` com o valor dito. O servidor recusa `registrar_custo` se o evento tiver mais de 72 h, já tiver custo, estiver anulado ou tiver sido gravado por outra pessoa.
 

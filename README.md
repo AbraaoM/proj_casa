@@ -12,7 +12,7 @@ Só leitura. `/` mostra o que pede atenção. No card da Casa, o painel lista no
 
 `/financas?mes=AAAA-MM` mostra o mês: saldo de hoje, resultado, contas a pagar, orçamento e para onde foi o dinheiro. Um mês que já terminou pode ser fechado com um toque; o PDF (resumo e previsão do mês seguinte) abre em `/financas/fechamento/AAAA-MM`. `/financas/lancamentos` lista os lançamentos com filtros (mês, tipo, conta, categoria, `origem=dog:<id>`); `/financas/contas` e `/financas/contas/:slug` mostram saldos e o saldo informado. `/financas/contas-a-pagar` lista as contas que se repetem por vencimento, com os últimos pagamentos; `/financas/orcamento` compara orçado e realizado por categoria e filhas, com os últimos 6 meses. A página do cartão mostra a fatura aberta e as próximas parcelas. As páginas de cão, carro e área levam a "Ver em Finanças".
 
-`/comida` mostra as calorias de hoje, a lista de compras, o estoque e os pratos. Unidade é `g`, `ml` ou `un`. A caloria de um prato só aparece quando cada ingrediente tem número ou aponta para um alimento do estoque na mesma unidade. O app não completa caloria que ninguém informou. `?q=` busca dentro do que já está na tela.
+`/comida` mostra as calorias de hoje, a lista de compras, o estoque e os pratos. Unidade é `g`, `ml` ou `un`. A caloria vem da tabela TACO pelo nome do alimento; a tela mostra qual linha foi usada. O que a tabela não decide fica sem número, para o agente escolher o `taco_id`. `?q=` busca dentro do que já está na tela.
 
 O painel só escreve por botões de um toque: **Paguei**, **Dose dada**, **Feito**, **+1 dia**, **Ignorar** (pula para o próximo ciclo), Confirmar/Dispensar de conta sugerida, **Fechar** o mês, **Comprado** e **Montar lista do que está baixo**. O campo **Buscar** nas listas só filtra (`?q=`). Não há outro formulário fora do login, da administração e da configuração do bot (`/agentes/bot`, só a conta master, exceção aprovada pelo dono). Feito, dose, pagamento e adiar mostram **Desfazer** por 5 s; desfazer anula o registro, não apaga. Comprado não mexe no estoque: quem soma a quantidade de volta é o agente, quando você pede. O normal continua sendo o dono pedir ao agente no chat. Detalhes para o agente: `docs/agente-conectar.md`.
 
@@ -128,14 +128,15 @@ Datas são dias de calendário (`YYYY-MM-DD`) no fuso da casa (`America/Sao_Paul
 | GET | `/api/agent/weather` | previsão e `outdoor_delay` |
 | GET | `/api/agent/calendar?within_days=14` | próximos compromissos do Google Agenda das contas conectadas. Guia: `docs/agente-agenda.md` |
 | POST | `/api/agent/calendar/events` | cria um compromisso na agenda de quem a chave representa. `external_key` é idempotente |
-| GET, POST | `/api/agent/food/stock` | estoque. O POST cria (`unit` `g`, `ml` ou `un`). `external_key` é idempotente |
-| GET, PATCH | `/api/agent/food/stock/:id_ou_slug` | lê e corrige quantidade, mínimo, validade, calorias. Arquivar: `{ "archived": true }` |
-| GET, POST | `/api/agent/food/dishes` | pratos. O POST cria com `ingredients` |
+| GET, POST | `/api/agent/food/stock` | estoque. O POST cria (`unit` `g`, `ml` ou `un`) e preenche a caloria pela TACO. `taco_candidates` quando o nome é ambíguo. `external_key` é idempotente |
+| GET, PATCH | `/api/agent/food/stock/:id_ou_slug` | lê e corrige quantidade, mínimo, validade. `taco_id` troca a linha da TACO. Arquivar: `{ "archived": true }` |
+| GET | `/api/agent/food/taco?q=` | busca na TACO, sem gravar. `stock` é o cru usual, `dish` o cozido, `candidates` as linhas próximas |
+| GET, POST | `/api/agent/food/dishes` | pratos. O POST cria com `ingredients`; a caloria sai da TACO ou do estoque |
 | GET, PATCH | `/api/agent/food/dishes/:id_ou_slug` | lê e corrige. `ingredients` troca a lista inteira |
 | GET, POST | `/api/agent/food/shopping` | lista de compras aberta. `?include_bought=1` inclui o que já foi comprado |
 | POST | `/api/agent/food/shopping/generate` | coloca na lista o que está no mínimo ou abaixo |
 | POST | `/api/agent/food/shopping/:id/buy` | marca comprado. `{ "restock": true }` soma a quantidade no estoque, uma vez |
-| GET, POST | `/api/agent/food/meals?date=` | calorias do dia e o registro de uma refeição. Sem prato, `kcal` é obrigatório |
+| GET, POST | `/api/agent/food/meals?date=` | calorias do dia e o registro de uma refeição. Sem prato, `kcal` é o número da TACO |
 | POST | `/api/agent/food/meals/:id/void` | anula a refeição. A `external_key` fica livre |
 
 Domínios: `dog`, `house`, `finance`, `car`, `family`.

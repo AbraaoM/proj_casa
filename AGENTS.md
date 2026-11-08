@@ -93,12 +93,14 @@ The app surfaces what needs attention, timelines, and history. It does **not** a
 - `pdf_fechamento` and `GET /api/agent/finance/closes/:month/pdf` return the PDF of a closed month. The logged-in screen uses `/financas/fechamento/:month`. Rebuild a close after a correction with `fechar_mes` `refresh: true` only. Do not invent figures.
 
 ## Food (stock, dishes, shopping, calories)
-- `/comida` shows today's calories, the open shopping list, the pantry and the dishes. `?q=` only filters what is already on the screen.
-- The agent writes. `ver_comida`, `definir_alimento`, `definir_prato`, `adicionar_compra`, `gerar_lista`, `marcar_compra`, `registrar_refeicao`, `anular_refeicao`. The same rules are on `/api/agent/food/`.
-- Quantities are grams, millilitres or pieces (`g`, `ml`, `un`). `kcal_per_100` is only for `g` and `ml`. `kcal_each` is only for `un`.
-- A dish has a per-serving calorie total only when every ingredient has a stated `kcal` or a linked stock item with calories in the same unit. Never invent a number. A meal without a dish needs the `kcal` the person said.
+- `/comida` shows today's calories, the open shopping list, the pantry and the dishes. `?q=` only filters what is already on the screen. When a row came from TACO, the screen shows that name and kcal per 100 g so a wrong default is visible. There is no calorie form.
+- The agent writes. `ver_comida`, `buscar_taco`, `definir_alimento`, `definir_prato`, `adicionar_compra`, `gerar_lista`, `marcar_compra`, `registrar_refeicao`, `anular_refeicao`. The same rules are on `/api/agent/food/`. `GET /api/agent/food/taco?q=` is the read-only lookup.
+- Calories come from the bundled TACO 4th edition (NEPA/UNICAMP), per 100 g. A stated number still wins. The person is never asked for kcal. An ambiguous name returns candidates; the agent picks a `taco_id` and calls again. Do not guess among cuts, banana varieties or cheeses.
+- A single household word uses the usual row. Stock prefers raw, a plate prefers cooked: arroz tipo 1, feijão carioca, ovo de galinha inteiro, óleo de soja, açúcar refinado, pão francês, batata inglesa, frango peito sem pele, café em pó no estoque e infusão no prato. An exact description wins over that default.
+- Quantities are grams, millilitres or pieces (`g`, `ml`, `un`). `ml` reuses the per-100 g figure (an approximation). Piece weights exist only for pão francês (50 g), banana prata (75 g), ovo de codorna (10 g) and ovo de galinha (45 g, fried 50 g). Anything else counted as `un` stays without kcal until it is recorded in grams.
+- A dish has a per-serving calorie total only when every ingredient resolved. A meal without a dish takes the kcal the agent computed from TACO. Never invent a number. Rows with no published energy (leite integral, for one) are omitted.
 - Low stock is at or below `min_quantity`. `gerar_lista` adds the shortfall, and skips an item already on the open list. One tap on the screen does the same. **Comprado** only marks the line; it does not change stock. `marcar_compra` with `restock: true` adds the quantity, once.
-- A meal is for one day, never a future day. Voiding it (`anular_refeicao`) hides it from the day and frees the `external_key`. Nothing is deleted.
+- A meal is for one day, never a future day. Voiding it (`anular_refeicao`) hides it from the day and frees the `external_key`. Nothing is deleted. `013_food_taco` adds `taco_id`; run it with `012_food`.
 
 ## Never break the core experience
 The person will use this daily. A broken screen or wrong recommendation creates distrust.

@@ -11,6 +11,7 @@ export type StockRow = {
   expires_on: string | null;
   kcal_per_100: number | null;
   kcal_each: number | null;
+  taco_id: number | null;
   external_key: string | null;
   archived: boolean;
 };
@@ -21,6 +22,7 @@ export type DishLineRow = {
   unit: FoodUnit;
   food_item_id: string | null;
   kcal: number | null;
+  taco_id: number | null;
   item_unit: FoodUnit | null;
   item_kcal_per_100: number | null;
   item_kcal_each: number | null;
@@ -79,6 +81,7 @@ function stockFrom(row: Record<string, unknown>): StockRow {
     expires_on: row.expires_on === null || row.expires_on === undefined ? null : String(row.expires_on).slice(0, 10),
     kcal_per_100: nOrNull(row.kcal_per_100),
     kcal_each: nOrNull(row.kcal_each),
+    taco_id: nOrNull(row.taco_id),
     external_key: row.external_key === null || row.external_key === undefined ? null : String(row.external_key),
     archived: row.archived_at !== null && row.archived_at !== undefined,
   };
@@ -86,7 +89,7 @@ function stockFrom(row: Record<string, unknown>): StockRow {
 
 const STOCK_SQL = `
   SELECT id::text, name, slug, unit, quantity_milli, min_quantity_milli, expires_on::text,
-         kcal_per_100, kcal_each, external_key, archived_at
+         kcal_per_100, kcal_each, taco_id, external_key, archived_at
   FROM food_items
 `;
 
@@ -124,14 +127,15 @@ export async function insertStock(
     expires_on: string | null;
     kcal_per_100: number | null;
     kcal_each: number | null;
+    taco_id: number | null;
     external_key: string | null;
   },
 ): Promise<string> {
   const rows = await sql.query<{ id: string }>(
-    `INSERT INTO food_items (name, slug, unit, quantity_milli, min_quantity_milli, expires_on, kcal_per_100, kcal_each, external_key)
-     VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9)
+    `INSERT INTO food_items (name, slug, unit, quantity_milli, min_quantity_milli, expires_on, kcal_per_100, kcal_each, taco_id, external_key)
+     VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10)
      RETURNING id::text`,
-    [input.name, input.slug, input.unit, input.quantity_milli, input.min_quantity_milli, input.expires_on, input.kcal_per_100, input.kcal_each, input.external_key],
+    [input.name, input.slug, input.unit, input.quantity_milli, input.min_quantity_milli, input.expires_on, input.kcal_per_100, input.kcal_each, input.taco_id, input.external_key],
   );
   const id = rows[0]?.id;
   if (!id) throw new Error("Insert did not return a food item id.");
@@ -152,6 +156,7 @@ export async function patchStock(sql: Sql, id: string, patch: Record<string, unk
   if ("expires_on" in patch) add("expires_on", patch.expires_on, "::date");
   if ("kcal_per_100" in patch) add("kcal_per_100", patch.kcal_per_100);
   if ("kcal_each" in patch) add("kcal_each", patch.kcal_each);
+  if ("taco_id" in patch) add("taco_id", patch.taco_id);
   if ("archived" in patch) add("archived_at", patch.archived ? new Date().toISOString() : null);
   if (sets.length === 0) return;
   params.push(id);
@@ -165,7 +170,7 @@ export async function addStockQuantity(sql: Sql, id: string, milli: number): Pro
 
 const DISH_SQL = `
   SELECT d.id::text AS id, d.name, d.slug, d.servings, d.notes, d.external_key, d.archived_at,
-         l.position, l.name AS line_name, l.quantity_milli, l.unit, l.food_item_id::text AS food_item_id, l.kcal,
+         l.position, l.name AS line_name, l.quantity_milli, l.unit, l.food_item_id::text AS food_item_id, l.kcal, l.taco_id,
          i.unit AS item_unit, i.kcal_per_100 AS item_kcal_per_100, i.kcal_each AS item_kcal_each
   FROM food_dishes d
   LEFT JOIN food_dish_lines l ON l.dish_id = d.id
@@ -196,6 +201,7 @@ function groupDishes(rows: Record<string, unknown>[]): DishRow[] {
       unit: row.unit as FoodUnit,
       food_item_id: row.food_item_id === null || row.food_item_id === undefined ? null : String(row.food_item_id),
       kcal: nOrNull(row.kcal),
+      taco_id: nOrNull(row.taco_id),
       item_unit: row.item_unit === null || row.item_unit === undefined ? null : (row.item_unit as FoodUnit),
       item_kcal_per_100: nOrNull(row.item_kcal_per_100),
       item_kcal_each: nOrNull(row.item_kcal_each),
@@ -243,15 +249,15 @@ export async function insertDish(
 export async function replaceDishLines(
   sql: Sql,
   dishId: string,
-  lines: { name: string; quantity_milli: number; unit: FoodUnit; food_item_id: string | null; kcal: number | null }[],
+  lines: { name: string; quantity_milli: number; unit: FoodUnit; food_item_id: string | null; kcal: number | null; taco_id: number | null }[],
 ): Promise<void> {
   await sql.query("DELETE FROM food_dish_lines WHERE dish_id = $1::uuid", [dishId]);
   for (let position = 0; position < lines.length; position += 1) {
     const line = lines[position]!;
     await sql.query(
-      `INSERT INTO food_dish_lines (dish_id, position, name, quantity_milli, unit, food_item_id, kcal)
-       VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7)`,
-      [dishId, position, line.name, line.quantity_milli, line.unit, line.food_item_id, line.kcal],
+      `INSERT INTO food_dish_lines (dish_id, position, name, quantity_milli, unit, food_item_id, kcal, taco_id)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8)`,
+      [dishId, position, line.name, line.quantity_milli, line.unit, line.food_item_id, line.kcal, line.taco_id],
     );
   }
 }

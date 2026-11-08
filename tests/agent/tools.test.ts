@@ -9,7 +9,7 @@ const CATALOG = [
   "cadastrar", "clima",
   "resumo_financeiro", "fechar_mes", "pdf_fechamento", "listar_financas", "criar_conta", "conta_a_pagar", "pagar_conta",
   "definir_orcamento", "conferir_conta", "ajustar_casa", "agenda_proximos", "agenda_criar", "relatorio_do_dia",
-  "ver_comida", "definir_alimento", "definir_prato", "adicionar_compra", "gerar_lista", "marcar_compra", "registrar_refeicao", "anular_refeicao",
+  "ver_comida", "buscar_taco", "definir_alimento", "definir_prato", "adicionar_compra", "gerar_lista", "marcar_compra", "registrar_refeicao", "anular_refeicao",
 ] as const;
 
 /** Money fields only where the person stated the number. No free-floating transaction. */
@@ -126,8 +126,15 @@ describe("agent tool catalog", () => {
   test("food tools reject a bad request before the database", async () => {
     await expect(tool("ver_comida").run({}, context)).rejects.toMatchObject({ code: "validation_error" });
     await expect(tool("ver_comida").run({ view: "calorias", date: "2099-01-01" }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("buscar_taco").run({}, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("buscar_taco").run({ q: "arroz", extra: true }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("buscar_taco").run({ q: "arroz" }, context)).resolves.toMatchObject({
+      stock: { name: "Arroz, tipo 1, cru", kcal_per_100: 358 },
+      dish: { name: "Arroz, tipo 1, cozido", kcal_per_100: 128 },
+    });
     await expect(tool("definir_alimento").run({ name: "Arroz", unit: "kg", quantity: 1 }, context)).rejects.toMatchObject({ code: "validation_error" });
     await expect(tool("definir_alimento").run({ name: "Ovo", unit: "un", quantity: 6, kcal_per_100: 80 }, context)).rejects.toMatchObject({ code: "validation_error" });
+    await expect(tool("definir_alimento").run({ name: "Arroz", unit: "g", quantity: 1, taco_id: 0 }, context)).rejects.toMatchObject({ code: "validation_error" });
     await expect(tool("definir_prato").run({ name: "Sopa" }, context)).rejects.toMatchObject({ code: "validation_error" });
     await expect(tool("adicionar_compra").run({ quantity: 1 }, context)).rejects.toMatchObject({ code: "validation_error" });
     await expect(tool("gerar_lista").run({ extra: true }, context)).rejects.toMatchObject({ code: "validation_error" });
@@ -136,7 +143,10 @@ describe("agent tool catalog", () => {
     await expect(tool("registrar_refeicao").run({ title: "Pão", kcal: 150, eaten_on: "2026-10-19" }, context)).rejects.toMatchObject({ code: "validation_error" });
     await expect(tool("anular_refeicao").run({ meal_id: "nao-e-uuid" }, context)).rejects.toMatchObject({ code: "not_found" });
     expect(tool("ver_comida").writes).toBe(false);
+    expect(tool("buscar_taco").writes).toBe(false);
     expect(tool("definir_alimento").writes).toBe(true);
+    expect(tool("definir_alimento").description).toMatch(/TACO/);
+    expect(tool("buscar_taco").description).toMatch(/Não peça caloria/);
   });
 
   test("marcar_feito rejects an amount even if the model sends one", async () => {

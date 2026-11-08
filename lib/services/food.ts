@@ -21,6 +21,7 @@ import {
   type StockDraft,
   type StockPatch,
 } from "@/lib/domain/food";
+import { applyTacoToStock, searchTaco, tacoById, tacoIngredientKcal, type TacoMatch } from "@/lib/domain/food/taco";
 import { notFound, validationError } from "@/lib/errors";
 import {
   addStockQuantity,
@@ -65,7 +66,7 @@ export type DishView = {
   known_kcal: number;
   missing: string[];
   kcal_per_serving: number | null;
-  ingredients: { name: string; quantity_milli: number; unit: FoodUnit; food_item_id: string | null; kcal: number | null }[];
+  ingredients: { name: string; quantity_milli: number; unit: FoodUnit; food_item_id: string | null; kcal: number | null; taco_id: number | null }[];
 };
 
 function viewStock(row: StockRow, today: string): StockView {
@@ -82,6 +83,7 @@ function viewDish(row: DishRow): DishView {
       line,
       line.item_unit ? { unit: line.item_unit, kcal_per_100: line.item_kcal_per_100, kcal_each: line.item_kcal_each } : null,
     ),
+    taco_id: line.taco_id,
   }));
   const calories = dishCalories(ingredients, row.servings);
   return { id: row.id, name: row.name, slug: row.slug, servings: row.servings, notes: row.notes, archived: row.archived, ingredients, ...calories };
@@ -101,6 +103,8 @@ export function presentStock(item: StockView) {
     low: item.low,
     shortfall: item.shortfall_milli === null ? null : fromMilli(item.shortfall_milli),
     expiry: item.expiry,
+    taco_id: item.taco_id,
+    taco_name: item.taco_id ? tacoById(item.taco_id)?.name ?? null : null,
     ...(item.archived ? { archived: true } : {}),
   };
 }
@@ -122,6 +126,8 @@ export function presentDish(dish: DishView) {
       unit: line.unit,
       food_item_id: line.food_item_id,
       kcal: line.kcal,
+      taco_id: line.taco_id,
+      taco_name: line.taco_id ? tacoById(line.taco_id)?.name ?? null : null,
     })),
   };
 }
@@ -165,11 +171,16 @@ export function presentDay(day: string, meals: MealRow[]) {
   };
 }
 
-async function resolveLines(sql: Sql, lines: IngredientDraft[]): Promise<{ name: string; quantity_milli: number; unit: FoodUnit; food_item_id: string | null; kcal: number | null }[]> {
+async function resolveLines(sql: Sql, lines: IngredientDraft[]): Promise<{ name: string; quantity_milli: number; unit: FoodUnit; food_item_id: string | null; kcal: number | null; taco_id: number | null }[]> {
   const resolved = [];
   for (const line of lines) {
+    if (line.taco_id !== null && !tacoById(line.taco_id)) {
+      throw validationError("taco_id was not found in TACO", [{ field: "ingredients", message: "was not found in TACO" }]);
+    }
     const item = line.food_item_id ? await getStockRow(sql, line.food_item_id) : null;
     if (line.food_item_id && !item) throw notFound("Food item was not found.");
+    const fromStock = lineKcal(line, item);
+    const taco = fromStock === null ? tacoIngredientKcal(line) : null;
     const name = line.name ?? item?.name;
     if (!name) throw validationError("ingredient name is required", [{ field: "ingredients", message: "name is required" }]);
     resolved.push({
@@ -177,10 +188,15 @@ async function resolveLines(sql: Sql, lines: IngredientDraft[]): Promise<{ name:
       quantity_milli: line.quantity_milli,
       unit: line.unit,
       food_item_id: item?.id ?? null,
-      kcal: lineKcal(line, item),
+      kcal: fromStock ?? taco?.kcal ?? null,
+      taco_id: fromStock !== null ? item?.taco_id ?? line.taco_id : taco?.taco_id ?? null,
     });
   }
   return resolved;
+}
+
+export function dishTacoGaps(dish: DishView): { name: string; candidates: TacoMatch[] }[] {
+  return dish.ingredients.filter((line) => line.kcal === null).map((line) => ({ name: line.name, candidates: searchTaco(line.name, 5) }));
 }
 
 export async function listStock(sql: Sql, today: string, includeArchived = false): Promise<StockView[]> {
@@ -193,21 +209,26 @@ export async function readStock(sql: Sql, ref: string, today: string): Promise<S
   return viewStock(row, today);
 }
 
-export async function createStock(sql: Sql, draft: StockDraft, today: string): Promise<{ item: StockView; idempotent_replay: boolean }> {
+export async function createStock(sql: Sql, draft: StockDraft, today: string): Promise<{ item: StockView; idempotent_replay: boolean; taco_candidates: TacoMatch[] }> {
+  if (draft.taco_id !== null && !tacoById(draft.taco_id)) {
+    throw validationError("taco_id was not found in TACO", [{ field: "taco_id", message: "was not found in TACO" }]);
+  }
+  const filled = applyTacoToStock(draft);
+  const candidates = filled.taco_id === null && filled.kcal_per_100 === null && filled.kcal_each === null ? searchTaco(draft.name, 5) : [];
   if (draft.external_key) {
     const existing = await stockByExternalKey(sql, draft.external_key);
-    if (existing) return { item: viewStock(existing, today), idempotent_replay: true };
+    if (existing) return { item: viewStock(existing, today), idempotent_replay: true, taco_candidates: [] };
   }
   const slug = nextSlug(foodSlug(draft.name), new Set(await stockSlugs(sql)));
   try {
-    const id = await insertStock(sql, { ...draft, slug });
+    const id = await insertStock(sql, { ...filled, slug });
     const item = await getStockRow(sql, id);
     if (!item) throw new Error("Inserted food item could not be read back.");
-    return { item: viewStock(item, today), idempotent_replay: false };
+    return { item: viewStock(item, today), idempotent_replay: false, taco_candidates: candidates };
   } catch (error) {
     if (draft.external_key && isUniqueViolation(error)) {
       const existing = await stockByExternalKey(sql, draft.external_key);
-      if (existing) return { item: viewStock(existing, today), idempotent_replay: true };
+      if (existing) return { item: viewStock(existing, today), idempotent_replay: true, taco_candidates: [] };
     }
     throw error;
   }
@@ -216,15 +237,30 @@ export async function createStock(sql: Sql, draft: StockDraft, today: string): P
 export async function updateStock(sql: Sql, ref: string, patch: StockPatch, today: string): Promise<StockView> {
   const current = await getStockRow(sql, ref);
   if (!current) throw notFound("Food item was not found.");
-  const unit = patch.unit ?? current.unit;
-  const kcalPer100 = patch.kcal_per_100 === undefined ? current.kcal_per_100 : patch.kcal_per_100;
-  const kcalEach = patch.kcal_each === undefined ? current.kcal_each : patch.kcal_each;
+  const next = { ...patch };
+  if (patch.taco_id) {
+    const food = tacoById(patch.taco_id);
+    if (!food) throw validationError("taco_id was not found in TACO", [{ field: "taco_id", message: "was not found in TACO" }]);
+    const unit = patch.unit ?? current.unit;
+    if (patch.kcal_per_100 === undefined && patch.kcal_each === undefined) {
+      if (unit === "un" && food.piece_grams !== null) {
+        next.kcal_each = Math.round((food.kcal_per_100 * food.piece_grams) / 100);
+        next.kcal_per_100 = null;
+      } else if (unit !== "un") {
+        next.kcal_per_100 = food.kcal_per_100;
+        next.kcal_each = null;
+      }
+    }
+  }
+  const unit = next.unit ?? current.unit;
+  const kcalPer100 = next.kcal_per_100 === undefined ? current.kcal_per_100 : next.kcal_per_100;
+  const kcalEach = next.kcal_each === undefined ? current.kcal_each : next.kcal_each;
   const fit = kcalFits(unit, kcalPer100, kcalEach);
   if (fit) throw validationError(fit, [{ field: unit === "un" ? "kcal_per_100" : "kcal_each", message: fit }]);
-  await patchStock(sql, current.id, patch);
-  const next = await getStockRow(sql, current.id);
-  if (!next) throw notFound("Food item was not found.");
-  return viewStock(next, today);
+  await patchStock(sql, current.id, next);
+  const saved = await getStockRow(sql, current.id);
+  if (!saved) throw notFound("Food item was not found.");
+  return viewStock(saved, today);
 }
 
 export async function listDishes(sql: Sql, includeArchived = false): Promise<DishView[]> {
@@ -237,21 +273,22 @@ export async function readDish(sql: Sql, ref: string): Promise<DishView> {
   return viewDish(row);
 }
 
-export async function createDish(sql: Sql, draft: DishDraft): Promise<{ dish: DishView; idempotent_replay: boolean }> {
+export async function createDish(sql: Sql, draft: DishDraft): Promise<{ dish: DishView; idempotent_replay: boolean; taco_candidates: { name: string; candidates: TacoMatch[] }[] }> {
   if (draft.external_key) {
     const existing = await dishByExternalKey(sql, draft.external_key);
-    if (existing) return { dish: viewDish(existing), idempotent_replay: true };
+    if (existing) return { dish: viewDish(existing), idempotent_replay: true, taco_candidates: [] };
   }
   const lines = await resolveLines(sql, draft.ingredients);
   const slug = nextSlug(foodSlug(draft.name), new Set(await dishSlugs(sql)));
   try {
     const id = await insertDish(sql, { name: draft.name, slug, servings: draft.servings, notes: draft.notes, external_key: draft.external_key });
     await replaceDishLines(sql, id, lines);
-    return { dish: await readDish(sql, id), idempotent_replay: false };
+    const dish = await readDish(sql, id);
+    return { dish, idempotent_replay: false, taco_candidates: dishTacoGaps(dish) };
   } catch (error) {
     if (draft.external_key && isUniqueViolation(error)) {
       const existing = await dishByExternalKey(sql, draft.external_key);
-      if (existing) return { dish: viewDish(existing), idempotent_replay: true };
+      if (existing) return { dish: viewDish(existing), idempotent_replay: true, taco_candidates: [] };
     }
     throw error;
   }

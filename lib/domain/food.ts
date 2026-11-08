@@ -1,8 +1,8 @@
 /**
  * Food is stock, dishes, a shopping list and the calories of what was eaten.
  * Pure: quantities are milli-units (1.5 un = 1500) so nothing depends on float dust.
- * Calories are never guessed. A line without a stated number and without a matching
- * stock figure stays unknown, and a dish with any unknown line has no per-serving total.
+ * A stated calorie wins. Otherwise TACO fills it by name (see food/taco.ts).
+ * An ambiguous name stays unknown, and a dish with any unknown line has no per-serving total.
  */
 import { daysUntil, isIsoDate, isUuid } from "@/lib/domain/dates";
 import type { FieldError, ParseResult } from "@/lib/domain/validate";
@@ -23,6 +23,8 @@ export type StockDraft = {
   kcal_per_100: number | null;
   kcal_each: number | null;
   external_key: string | null;
+  /** TACO row, when the caller already picked one. Null lets the name decide. */
+  taco_id: number | null;
 };
 
 export type StockPatch = {
@@ -34,6 +36,7 @@ export type StockPatch = {
   kcal_per_100?: number | null;
   kcal_each?: number | null;
   archived?: boolean;
+  taco_id?: number | null;
 };
 
 export type IngredientDraft = {
@@ -42,6 +45,7 @@ export type IngredientDraft = {
   unit: FoodUnit;
   food_item_id: string | null;
   kcal: number | null;
+  taco_id: number | null;
 };
 
 export type DishDraft = {
@@ -78,8 +82,8 @@ export type MealDraft = {
   external_key: string | null;
 };
 
-const CREATE_STOCK = ["name", "unit", "quantity", "min_quantity", "expires_on", "kcal_per_100", "kcal_each", "external_key"] as const;
-const PATCH_STOCK = ["name", "unit", "quantity", "min_quantity", "expires_on", "kcal_per_100", "kcal_each", "archived"] as const;
+const CREATE_STOCK = ["name", "unit", "quantity", "min_quantity", "expires_on", "kcal_per_100", "kcal_each", "external_key", "taco_id"] as const;
+const PATCH_STOCK = ["name", "unit", "quantity", "min_quantity", "expires_on", "kcal_per_100", "kcal_each", "archived", "taco_id"] as const;
 const DISH_FIELDS = ["name", "servings", "notes", "external_key", "ingredients"] as const;
 const PATCH_DISH = ["name", "servings", "notes", "archived", "ingredients"] as const;
 const SHOPPING_FIELDS = ["name", "quantity", "unit", "food_item_id", "external_key"] as const;
@@ -288,6 +292,16 @@ function readKey(value: unknown, details: FieldError[]): string | null {
   return value.trim();
 }
 
+function readTacoId(value: unknown, field: string, details: FieldError[]): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 9999) {
+    details.push({ field, message: "must be a TACO id" });
+    return undefined;
+  }
+  return value;
+}
+
 function readNotes(value: unknown, details: FieldError[]): string | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
@@ -339,15 +353,17 @@ function readIngredients(value: unknown, details: FieldError[], required: boolea
       details.push({ field, message: "must be an object" });
       continue;
     }
-    unknownFields(row, ["name", "quantity", "unit", "food_item_id", "kcal"], details);
+    unknownFields(row, ["name", "quantity", "unit", "food_item_id", "kcal", "taco_id"], details);
     const food_item_id = readUuid(row.food_item_id, `${field}.food_item_id`, details, false);
     const name = readName(row.name, `${field}.name`, details, !food_item_id);
     const quantity_milli = readMilli(row.quantity, `${field}.quantity`, details, true, false);
     const unit = readUnit(row.unit, `${field}.unit`, details, true);
     const stated = row.kcal === undefined ? null : readKcal(row.kcal, `${field}.kcal`, details, 20_000);
-    if (stated === undefined || quantity_milli === null || !unit) continue;
-    if (name) lines.push({ name, quantity_milli, unit, food_item_id, kcal: stated });
-    else if (food_item_id) lines.push({ name: null, quantity_milli, unit, food_item_id, kcal: stated });
+    const taco = readTacoId(row.taco_id, `${field}.taco_id`, details);
+    if (stated === undefined || quantity_milli === null || !unit || taco === undefined && row.taco_id !== undefined) continue;
+    const taco_id = taco ?? null;
+    if (name) lines.push({ name, quantity_milli, unit, food_item_id, kcal: stated, taco_id });
+    else if (food_item_id) lines.push({ name: null, quantity_milli, unit, food_item_id, kcal: stated, taco_id });
   }
   if (details.length > 0) return undefined;
   if (!lines || lines.length !== value.length) {
@@ -370,12 +386,13 @@ export function parseStockCreate(body: unknown): ParseResult<StockDraft> {
   const kcal100 = raw.kcal_per_100 === undefined ? null : readKcal(raw.kcal_per_100, "kcal_per_100", details, 900);
   const each = raw.kcal_each === undefined ? null : readKcal(raw.kcal_each, "kcal_each", details, 5000);
   const external_key = readKey(raw.external_key, details);
-  if (details.length > 0 || !name || !unit || quantity_milli === null || kcal100 === undefined || each === undefined || expires === undefined) {
+  const taco = raw.taco_id === undefined ? null : readTacoId(raw.taco_id, "taco_id", details);
+  if (details.length > 0 || !name || !unit || quantity_milli === null || kcal100 === undefined || each === undefined || expires === undefined || taco === undefined) {
     return bad(details.length > 0 ? details : [{ field: "body", message: "is invalid" }]);
   }
   const fit = kcalFits(unit, kcal100, each);
   if (fit) return bad([{ field: unit === "un" ? "kcal_per_100" : "kcal_each", message: fit }]);
-  return { ok: true, value: { name, unit, quantity_milli, min_quantity_milli: min, expires_on: expires, kcal_per_100: kcal100, kcal_each: each, external_key } };
+  return { ok: true, value: { name, unit, quantity_milli, min_quantity_milli: min, expires_on: expires, kcal_per_100: kcal100, kcal_each: each, external_key, taco_id: taco } };
 }
 
 export function parseStockPatch(body: unknown): ParseResult<StockPatch> {
@@ -412,6 +429,10 @@ export function parseStockPatch(body: unknown): ParseResult<StockPatch> {
   if ("archived" in raw) {
     if (typeof raw.archived !== "boolean") details.push({ field: "archived", message: "must be true or false" });
     else patch.archived = raw.archived;
+  }
+  if ("taco_id" in raw) {
+    const taco = readTacoId(raw.taco_id, "taco_id", details);
+    if (taco !== undefined) patch.taco_id = taco;
   }
   if (details.length > 0) return bad(details);
   if (Object.keys(patch).length === 0) return bad([{ field: "body", message: "nothing to change" }]);

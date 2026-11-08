@@ -19,6 +19,6 @@ export async function POST(request: Request) {
     const parsed = parseStockCreate(await readJson(request));
     if (!parsed.ok) throw invalid(parsed.details, "Invalid food item.");
     const result = await createStock(sql, parsed.value, today);
-    return jsonOk({ item: presentStock(result.item) }, { idempotent_replay: result.idempotent_replay }, result.idempotent_replay ? 200 : 201);
+    return jsonOk({ item: presentStock(result.item), taco_candidates: result.taco_candidates }, { idempotent_replay: result.idempotent_replay }, result.idempotent_replay ? 200 : 201);
   });
 }

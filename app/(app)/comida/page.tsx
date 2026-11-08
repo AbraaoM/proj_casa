@@ -3,6 +3,7 @@ import { PageNotice } from "@/components/history/page-notice";
 import { ListSearch } from "@/components/ui/list-search";
 import { buyFoodAction, fillShoppingAction } from "@/lib/food/actions";
 import { formatQuantity, type Expiry } from "@/lib/domain/food";
+import { tacoById } from "@/lib/domain/food/taco";
 import { withDatabase } from "@/lib/services/subject-pages";
 import { loadFoodBoard } from "@/lib/services/food";
 import { formatDate } from "@/lib/ui/format";
@@ -38,7 +39,7 @@ export default async function FoodPage({ searchParams }: { searchParams: Promise
       <BackLink href="/" label="Painel" />
       <h1 className="mt-6 font-display text-5xl leading-none tracking-tight md:text-6xl">Comida</h1>
       <p className="mt-3 max-w-md text-base text-ink-muted">
-        Estoque, pratos, lista de compras e as calorias de hoje. Quem grava é o seu agente. A caloria só entra quando está no prato ou quando você diz o número.
+        Estoque, pratos, lista de compras e as calorias de hoje. Quem grava é o seu agente. A caloria vem da tabela TACO, pelo nome do alimento.
       </p>
       {searchable ? <ListSearch action="/comida" query={query} placeholder="Buscar alimento, prato ou compra" /> : null}
 
@@ -126,6 +127,7 @@ export default async function FoodPage({ searchParams }: { searchParams: Promise
             <ul className="mt-4">
               {visibleStock.map((item) => {
                 const when = expiryLabel(item.expiry, item.expires_on);
+                const taco = item.taco_id ? tacoById(item.taco_id) : null;
                 return (
                   <li key={item.id} className={`border-t border-line py-3 dark:border-line-dark ${item.low || item.expiry === "expired" ? "border-l-2 border-l-accent pl-3" : ""}`}>
                     <div className="flex items-baseline justify-between gap-4">
@@ -137,6 +139,8 @@ export default async function FoodPage({ searchParams }: { searchParams: Promise
                       {item.shortfall_milli ? ` · faltam ${formatQuantity(item.shortfall_milli, item.unit)}` : ""}
                       {when ? ` · ${when}` : ""}
                     </p>
+                    {taco ? <p className="mt-1 text-sm text-ink-faint">TACO · {taco.name} · {taco.kcal_per_100} kcal/100 g</p> : null}
+                    {item.unit === "un" && item.kcal_each === null ? <p className="mt-1 text-sm text-ink-faint">Sem peso de uma peça. Peça em gramas.</p> : null}
                   </li>
                 );
               })}
@@ -153,19 +157,26 @@ export default async function FoodPage({ searchParams }: { searchParams: Promise
             <p className="mt-4 text-sm text-ink-muted">{query ? "Nada com essa busca." : "Nenhum prato."}</p>
           ) : (
             <ul className="mt-4">
-              {visibleDishes.map((dish) => (
-                <li key={dish.id} className="border-t border-line py-3 dark:border-line-dark">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <span>{dish.name}</span>
-                    <span className="shrink-0 text-sm text-ink-muted">
-                      {dish.kcal_per_serving === null ? "calorias incompletas" : `${dish.kcal_per_serving} kcal`}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {dish.servings} {dish.servings === 1 ? "porção" : "porções"} · {dish.ingredients.length} {dish.ingredients.length === 1 ? "ingrediente" : "ingredientes"}
-                  </p>
-                </li>
-              ))}
+              {visibleDishes.map((dish) => {
+                const tacoNames = dish.ingredients.flatMap((line) => {
+                  const food = line.taco_id ? tacoById(line.taco_id) : null;
+                  return food ? [food.name] : [];
+                });
+                return (
+                  <li key={dish.id} className="border-t border-line py-3 dark:border-line-dark">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <span>{dish.name}</span>
+                      <span className="shrink-0 text-sm text-ink-muted">
+                        {dish.kcal_per_serving === null ? "calorias incompletas" : `${dish.kcal_per_serving} kcal`}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-ink-muted">
+                      {dish.servings} {dish.servings === 1 ? "porção" : "porções"} · {dish.ingredients.length} {dish.ingredients.length === 1 ? "ingrediente" : "ingredientes"}
+                    </p>
+                    {tacoNames.length > 0 ? <p className="mt-1 text-sm text-ink-faint">TACO · {tacoNames.join(" · ")}</p> : null}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
