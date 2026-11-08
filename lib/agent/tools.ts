@@ -42,6 +42,9 @@ import { isIsoDate, isUuid } from "@/lib/domain/dates";
 import { createAgendaEvent, listHouseholdAgenda } from "@/lib/services/google-calendar";
 import { loadDayReport } from "@/lib/services/day-report";
 import { parseReportDay } from "@/lib/domain/day-report";
+import { parseDishCreate, parseDishPatch, parseFoodView, parseMealCreate, parseRestock, parseShoppingCreate, parseStockCreate, parseStockPatch } from "@/lib/domain/food";
+import { resolveTaco, searchTaco } from "@/lib/domain/food/taco";
+import { addShopping, buyShopping, cancelMeal, createDish, createStock, dayMeals, dishTacoGaps, generateShopping, listDishes, listShopping, listStock, logMeal, presentDay, presentDish, presentMeal, presentShopping, presentStock, readDish, readStock, updateDish, updateStock } from "@/lib/services/food";
 import { fetchWeather } from "@/lib/weather/open-meteo";
 
 export type ToolContext = { sql: Sql; today: string; clock: Clock };
@@ -948,6 +951,248 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
       const day = must(parseReportDay(raw.date, today), "day");
       const report = await loadDayReport(sql, { day, timeZone: clock.timeZone });
       return { ...report, timezone: clock.timeZone };
+    },
+  },
+  {
+    name: "ver_comida",
+    title: "Comida",
+    description: "Lê o estoque, os pratos, a lista de compras ou as calorias de um dia. Sem data, calorias é hoje. Não grava nada. A caloria vem da TACO; não invente número.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        view: { type: "string", enum: ["estoque", "pratos", "compras", "calorias"], description: "O que ler." },
+        ref: str("Id or slug of one food item or dish. Optional."),
+        date: date("AAAA-MM-DD for calorias. Omit for today."),
+        include_archived: { type: "boolean", description: "Include archived stock or dishes." },
+        include_bought: { type: "boolean", description: "Include shopping lines already bought." },
+      },
+      required: ["view"],
+      additionalProperties: false,
+    },
+    writes: false,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["view", "ref", "date", "include_archived", "include_bought"]);
+      const view = parseFoodView(raw.view);
+      if (!view) throw validationError("view must be estoque, pratos, compras or calorias", [{ field: "view", message: "must be estoque, pratos, compras or calorias" }]);
+      if (raw.include_archived !== undefined && typeof raw.include_archived !== "boolean") throw validationError("include_archived must be true or false", [{ field: "include_archived", message: "must be true or false" }]);
+      if (raw.include_bought !== undefined && typeof raw.include_bought !== "boolean") throw validationError("include_bought must be true or false", [{ field: "include_bought", message: "must be true or false" }]);
+      const day = must(parseReportDay(raw.date, today), "day");
+      if (view === "calorias") return presentDay(day, await dayMeals(sql, day));
+      if (view === "compras") return { lines: (await listShopping(sql, raw.include_bought === true)).map(presentShopping) };
+      if (raw.ref !== undefined && (typeof raw.ref !== "string" || (!isUuid(raw.ref) && !/^[a-z0-9_]{1,40}$/.test(raw.ref)))) throw notFound();
+      if (view === "pratos") {
+        if (typeof raw.ref === "string") return { dish: presentDish(await readDish(sql, raw.ref)) };
+        return { dishes: (await listDishes(sql, raw.include_archived === true)).map(presentDish) };
+      }
+      if (typeof raw.ref === "string") return { item: presentStock(await readStock(sql, raw.ref, today)) };
+      return { items: (await listStock(sql, today, raw.include_archived === true)).map(presentStock) };
+    },
+  },
+  {
+    name: "buscar_taco",
+    title: "Tabela TACO",
+    description: "Busca um alimento na tabela TACO (NEPA/UNICAMP, 4ª edição) e devolve kcal por 100 g, o id e, quando existe, o peso de uma peça. Não grava nada. Use o id em definir_alimento (taco_id) ou no ingrediente. Não peça caloria à pessoa. Nome ambíguo volta em candidates, sem escolha.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        q: str("Food name, as the person said it."),
+        limit: int("How many candidates, from 1 to 10. Default 5."),
+      },
+      required: ["q"],
+      additionalProperties: false,
+    },
+    writes: false,
+    async run(args) {
+      const raw = only(args, ["q", "limit"]);
+      if (typeof raw.q !== "string" || raw.q.trim().length === 0 || raw.q.trim().length > 80) {
+        throw validationError("q is required", [{ field: "q", message: "is required" }]);
+      }
+      if (raw.limit !== undefined && (typeof raw.limit !== "number" || !Number.isInteger(raw.limit) || raw.limit < 1 || raw.limit > 10)) {
+        throw validationError("limit must be an integer from 1 to 10", [{ field: "limit", message: "must be an integer from 1 to 10" }]);
+      }
+      const query = raw.q.trim();
+      const limit = typeof raw.limit === "number" ? raw.limit : 5;
+      return { query, stock: resolveTaco(query, "stock").choice, dish: resolveTaco(query, "dish").choice, candidates: searchTaco(query, limit) };
+    },
+  },
+  {
+    name: "definir_alimento",
+    title: "Estoque",
+    description: "Cria ou corrige um item do estoque: nome, quantidade, mínimo e validade. A caloria vem da TACO pelo nome (cru no estoque). Não pergunte kcal. Se voltar taco_candidates, escolha a linha mais próxima e chame de novo com taco_id. kcal_per_100 ou kcal_each só se a pessoa falou um número. Com id, atualiza. external_key repetida devolve o primeiro.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: str("Id or slug. Omit to create."),
+        name: str("Name, 1 to 80 characters."),
+        unit: { type: "string", enum: ["g", "ml", "un"] },
+        quantity: { type: "number", minimum: 0, description: "How much is in the pantry now." },
+        min_quantity: { type: "number", minimum: 0, description: "Buy when the stock is at or below this. null clears it." },
+        expires_on: date("AAAA-MM-DD. null clears it."),
+        taco_id: int("TACO row id, from buscar_taco, when the name alone was ambiguous."),
+        kcal_per_100: int("Only when the person stated calories per 100 g or 100 ml. Do not invent."),
+        kcal_each: int("Only when the person stated calories of one piece. Do not invent."),
+        archived: { type: "boolean" },
+        external_key: externalKey,
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["id", "name", "unit", "quantity", "min_quantity", "expires_on", "taco_id", "kcal_per_100", "kcal_each", "archived", "external_key"]);
+      if (raw.id !== undefined) {
+        if (typeof raw.id !== "string" || (!isUuid(raw.id) && !/^[a-z0-9_]{1,40}$/.test(raw.id))) throw notFound("Food item was not found.");
+        if ("external_key" in raw) throw validationError("external_key is only for a new item", [{ field: "external_key", message: "is only for a new item" }]);
+        const { id, ...rest } = raw;
+        const patch = must(parseStockPatch(rest), "stock");
+        return { item: presentStock(await updateStock(sql, id, patch, today)) };
+      }
+      const draft = must(parseStockCreate(raw), "stock");
+      const result = await createStock(sql, draft, today);
+      return { item: presentStock(result.item), idempotent_replay: result.idempotent_replay, taco_candidates: result.taco_candidates };
+    },
+  },
+  {
+    name: "definir_prato",
+    title: "Prato",
+    description: "Cria ou corrige um prato e os ingredientes. A caloria sai da TACO (cozido no prato) ou do alimento do estoque na mesma unidade. Não pergunte kcal. Se um ingrediente voltar em taco_candidates, chame de novo com o taco_id dessa linha. kcal na linha só se a pessoa falou o número. Peça sem peso conhecido (carne, queijo) vai em gramas, não em un.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: str("Id or slug. Omit to create."),
+        name: str("Dish name."),
+        servings: int("How many portions the recipe yields, from 1 to 50. Default 1."),
+        notes: str("Optional note, up to 500 characters."),
+        archived: { type: "boolean" },
+        external_key: externalKey,
+        ingredients: {
+          type: "array",
+          maxItems: 40,
+          items: {
+            type: "object",
+            properties: {
+              name: str("Ingredient name. Optional when food_item_id is set."),
+              quantity: { type: "number", exclusiveMinimum: 0 },
+              unit: { type: "string", enum: ["g", "ml", "un"] },
+              food_item_id: uuid("Stock item this ingredient uses."),
+              taco_id: int("TACO row id when the name alone was ambiguous."),
+              kcal: int("Only when the person stated the calories of this amount. Do not invent."),
+            },
+            required: ["quantity", "unit"],
+            additionalProperties: false,
+          },
+        },
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["id", "name", "servings", "notes", "archived", "external_key", "ingredients"]);
+      if (raw.id !== undefined) {
+        if (typeof raw.id !== "string" || (!isUuid(raw.id) && !/^[a-z0-9_]{1,40}$/.test(raw.id))) throw notFound("Dish was not found.");
+        if ("external_key" in raw) throw validationError("external_key is only for a new dish", [{ field: "external_key", message: "is only for a new dish" }]);
+        const { id, ...rest } = raw;
+        const dish = await updateDish(sql, id, must(parseDishPatch(rest), "dish"));
+        return { dish: presentDish(dish), taco_candidates: dishTacoGaps(dish) };
+      }
+      const result = await createDish(sql, must(parseDishCreate(raw), "dish"));
+      return { dish: presentDish(result.dish), idempotent_replay: result.idempotent_replay, taco_candidates: result.taco_candidates };
+    },
+  },
+  {
+    name: "adicionar_compra",
+    title: "Lista de compras",
+    description: "Acrescenta um item na lista de compras. Com food_item_id, o nome pode vir do estoque. Um alimento que já está na lista aberta não é duplicado.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: str("What to buy. Optional when food_item_id is set."),
+        quantity: { type: "number", exclusiveMinimum: 0 },
+        unit: { type: "string", enum: ["g", "ml", "un"] },
+        food_item_id: uuid("Stock item, when this line refills one."),
+        external_key: externalKey,
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["name", "quantity", "unit", "food_item_id", "external_key"]);
+      const result = await addShopping(sql, must(parseShoppingCreate(raw), "shopping"));
+      return { line: presentShopping(result.line), idempotent_replay: result.idempotent_replay };
+    },
+  },
+  {
+    name: "gerar_lista",
+    title: "Lista a partir do estoque",
+    description: "Coloca na lista o que está no mínimo ou abaixo. A quantidade é o que falta para o mínimo. O que já está na lista aberta não entra de novo.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    writes: true,
+    async run(args, { sql, today }) {
+      only(args, []);
+      const result = await generateShopping(sql, today);
+      return { added: result.added.map(presentShopping) };
+    },
+  },
+  {
+    name: "marcar_compra",
+    title: "Marcar comprado",
+    description: "Marca um item da lista como comprado. restock true soma a quantidade no estoque ligado, só se a linha tiver quantidade. Comprar de novo não soma duas vezes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: uuid("Shopping line id."),
+        restock: { type: "boolean", description: "Add the quantity back to the linked stock item. Default false." },
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["id", "restock"]);
+      if (typeof raw.id !== "string" || !isUuid(raw.id)) throw notFound("Shopping line was not found.");
+      const parsed = must(parseRestock({ restock: raw.restock }), "buy");
+      const result = await buyShopping(sql, raw.id, parsed.restock);
+      return { line: presentShopping(result.line), already: result.already };
+    },
+  },
+  {
+    name: "registrar_refeicao",
+    title: "Refeição",
+    description: "Registra o que foi comido. Com dish_id, a caloria sai do prato. Sem prato, calcule o kcal com buscar_taco (por 100 g, ou piece_grams para uma peça) e passe esse número. Não pergunte caloria à pessoa. Um dia futuro é recusado.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        eaten_on: date("AAAA-MM-DD. Omit for today. Not a future day."),
+        family_member_id: uuid("Who ate. Omit for the household."),
+        dish_id: uuid("Dish. Calories come from it unless kcal is set."),
+        title: str("What was eaten, when there is no dish or you want another name."),
+        servings: { type: "number", exclusiveMinimum: 0, maximum: 20, description: "Portions eaten. Default 1." },
+        kcal: int("Calories of this meal, when the person says the number."),
+        external_key: externalKey,
+      },
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql, today }) {
+      const raw = only(args, ["eaten_on", "family_member_id", "dish_id", "title", "servings", "kcal", "external_key"]);
+      const result = await logMeal(sql, must(parseMealCreate(raw, today), "meal"));
+      return { meal: presentMeal(result.meal), idempotent_replay: result.idempotent_replay };
+    },
+  },
+  {
+    name: "anular_refeicao",
+    title: "Anular refeição",
+    description: "Anula uma refeição registrada. Ela sai das calorias do dia e a external_key fica livre. Nada é apagado.",
+    inputSchema: {
+      type: "object",
+      properties: { meal_id: uuid("Meal id.") },
+      required: ["meal_id"],
+      additionalProperties: false,
+    },
+    writes: true,
+    async run(args, { sql }) {
+      const raw = only(args, ["meal_id"]);
+      if (typeof raw.meal_id !== "string" || !isUuid(raw.meal_id)) throw notFound("Meal was not found.");
+      return cancelMeal(sql, raw.meal_id);
     },
   },
 ];
