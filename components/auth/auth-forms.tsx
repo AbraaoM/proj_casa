@@ -31,6 +31,57 @@ export function FirstAccountForm({ action }: { action: Action }) {
   );
 }
 
+export function SignUpForm({ action }: { action: Action }) {
+  return (
+    <AuthForm action={action} submitLabel="Criar minha família · 14 dias grátis" pendingLabel="Criando…">
+      <Honeypot />
+      <Field label="Nome da família" name="family_name" autoComplete="organization" maxLength={60} />
+      <Field label="Usuário" name="username" autoComplete="username" />
+      <Field label="Senha (8 ou mais caracteres)" name="password" type="password" autoComplete="new-password" />
+      <Field label="Confirmar senha" name="confirm" type="password" autoComplete="new-password" />
+      <Terms />
+    </AuthForm>
+  );
+}
+
+export function JoinForm({ action, code }: { action: Action; code: string }) {
+  return (
+    <AuthForm action={action} submitLabel="Entrar na família" pendingLabel="Entrando…">
+      <Honeypot />
+      <input type="hidden" name="code" value={code} />
+      <Field label="Usuário" name="username" autoComplete="username" />
+      <Field label="Senha (8 ou mais caracteres)" name="password" type="password" autoComplete="new-password" />
+      <Field label="Confirmar senha" name="confirm" type="password" autoComplete="new-password" />
+      <Terms />
+    </AuthForm>
+  );
+}
+
+/** A field only bots fill in: hidden from people and from assistive tech. */
+function Honeypot() {
+  return (
+    <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+      <label>
+        Não preencha
+        <input type="text" name="website" tabIndex={-1} autoComplete="off" />
+      </label>
+    </div>
+  );
+}
+
+function Terms() {
+  const id = useId();
+  return (
+    <label htmlFor={id} className="flex min-h-11 items-start gap-3 text-sm text-ink-muted">
+      <input id={id} name="terms" type="checkbox" required className="mt-1 h-5 w-5 shrink-0 accent-accent" />
+      <span>
+        Li os <a href="/termos" target="_blank" rel="noopener" className="underline underline-offset-2">termos</a> e a{" "}
+        <a href="/privacidade" target="_blank" rel="noopener" className="underline underline-offset-2">privacidade</a>.
+      </span>
+    </label>
+  );
+}
+
 export function OwnPasswordForm({ action }: { action: Action }) {
   return (
     <AuthForm action={action} submitLabel="Trocar senha" pendingLabel="Salvando…" resetOnSuccess>
@@ -101,17 +152,19 @@ function Field({
   name,
   type = "text",
   autoComplete,
+  maxLength,
 }: {
   label: string;
   name: string;
   type?: "text" | "password";
   autoComplete: string;
+  maxLength?: number;
 }) {
   const id = useId();
   return (
     <label htmlFor={id} className="block">
       <span className="mb-2 block text-sm text-ink-muted">{label}</span>
-      <input id={id} name={name} type={type} autoComplete={autoComplete} required className={fieldClass} />
+      <input id={id} name={name} type={type} autoComplete={autoComplete} maxLength={maxLength} required className={fieldClass} />
     </label>
   );
 }

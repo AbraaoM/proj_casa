@@ -207,3 +207,7 @@ TEST_DATABASE_URL=postgresql://casa:casa@localhost:5432/casa_test npm run test:d
 ```
 
 Sem `TEST_DATABASE_URL`, eles são pulados. Para rodar o app contra um Postgres local, use `DATABASE_DRIVER=pg` no `.env.local`.
+
+
+## Famílias, cadastro e teste de 14 dias
+Qualquer pessoa cria a própria família em `/cadastrar` (usuário, senha, nome da família). A família nova tem 14 dias de teste, sem cartão e sem cobrança. Depois disso ela fica só para consulta: o app mostra uma tela clara e todo comando de escrita é recusado. A família original (a de antes do cadastro aberto) nunca expira. O dono da família gera um link de convite em `/usuarios` (um toque, vale 7 dias, uma pessoa, cancelável) e a pessoa entra em `/convite/<código>`. Cada família só enxerga os próprios dados (veja "Families" em AGENTS.md). `/privacidade` e `/termos` são rascunhos que ainda precisam de revisão jurídica.

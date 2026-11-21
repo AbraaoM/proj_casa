@@ -4,14 +4,21 @@ import { AppBadge } from "@/components/pwa/badge";
 import { InstallBanner } from "@/components/pwa/install";
 import type { AccountUser } from "@/lib/auth/types";
 import { UndoProvider } from "@/components/one-tap/undo-bar";
+import { TrialBanner } from "@/components/trial/trial-banner";
+import { TrialExpired } from "@/components/trial/trial-expired";
+import { trialState } from "@/lib/tenant/scope";
 
 /** Logged-in frame: sidebar from md, top and bottom bars on the phone. */
 
 export function AppShell({ user, badge = null, children }: { user: AccountUser; badge?: number | null; children: ReactNode }) {
+  const trial = user.family ? trialState(user.family) : null;
+  // After the 14 days the family is read-only: say so on one clear screen instead of showing buttons that fail.
+  if (user.family && trial?.expired) return <TrialExpired familyName={user.family.familyName} canManage={user.role === "admin"} />;
   return (
     <div className="min-h-full md:pl-20 lg:pl-60">
       <Sidebar username={user.username} />
       <TopBar />
+      {trial ? <TrialBanner trial={trial} /> : null}
       <AppBadge count={badge} />
       {/* Room for the bottom bar on the phone, so it never covers the last button. */}
       <UndoProvider>
