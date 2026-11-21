@@ -5,7 +5,8 @@
  *   TEST_DATABASE_URL=postgresql://casa:casa@localhost:5432/casa_test npx vitest run tests/integration/one-tap-db.test.ts
  */
 import { beforeAll, describe, expect, test } from "vitest";
-import { createSql, type Sql } from "@/lib/db/client";
+import { createSql, type Sql, type SystemSql } from "@/lib/db/client";
+import { familySql } from "../helpers/tenant";
 import { applyMigrations } from "@/lib/db/migrate";
 import { parseDogCreate } from "@/lib/domain/entities";
 import { parseBillCreate } from "@/lib/domain/finance/validate";
@@ -33,6 +34,7 @@ function ok<T extends { ok: boolean }>(result: T): Extract<T, { ok: true }> {
 
 describe.skipIf(!url)("one-tap actions", () => {
   let sql: Sql;
+  let raw: SystemSql;
   let dogId: string;
 
   async function count(query: string, params: unknown[]): Promise<number> {
@@ -52,10 +54,12 @@ describe.skipIf(!url)("one-tap actions", () => {
   beforeAll(async () => {
     if (!url || !/test/.test(url)) throw new Error("TEST_DATABASE_URL must name a test database.");
     process.env.DATABASE_DRIVER = "pg";
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
-    await applyMigrations(sql);
+    await applyMigrations(raw);
+    sql = familySql(raw);
     dogId = (await createDog(sql, must(parseDogCreate({ name: "Thor" })))).id;
   });
 

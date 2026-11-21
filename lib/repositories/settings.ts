@@ -6,7 +6,7 @@ import type { HouseholdSettings } from "@/lib/domain/types";
 const SELECT_SETTINGS = `
   SELECT city, region, country, latitude, longitude, timezone, updated_at
   FROM household_settings
-  WHERE id = 1
+  WHERE family_id = app_family_id()
 `;
 
 export async function getSettings(sql: Sql): Promise<HouseholdSettings | null> {
@@ -36,6 +36,6 @@ export async function updateSettings(sql: Sql, patch: SettingsPatch): Promise<Ho
   if (patch.longitude !== undefined) set("longitude", patch.longitude);
   if (patch.timezone !== undefined) set("timezone", patch.timezone);
   if (sets.length === 0) return getSettings(sql);
-  await sql.query(`UPDATE household_settings SET ${sets.join(", ")} WHERE id = 1`, params);
+  await sql.query(`UPDATE household_settings SET ${sets.join(", ")} WHERE family_id = app_family_id()`, params);
   return getSettings(sql);
 }

@@ -6,7 +6,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, test } from "vitest";
-import { createSql, type Sql } from "@/lib/db/client";
+import { createSql, type Sql, type SystemSql } from "@/lib/db/client";
+import { familySql } from "../helpers/tenant";
 import { applyMigrations, MIGRATIONS_DIR } from "@/lib/db/migrate";
 import { splitSql } from "@/lib/db/split-sql";
 import { getItem } from "@/lib/repositories/items";
@@ -31,17 +32,19 @@ function medicine(memberId: string, overrides: Partial<CreateItemInput> = {}): C
 
 describe.skipIf(!url)("medication doses on Postgres", () => {
   let sql: Sql;
+  let raw: SystemSql;
   let kid = "";
   let legacyItem = "";
 
   beforeAll(async () => {
     if (!url || !/test/.test(url)) throw new Error("TEST_DATABASE_URL must name a test database.");
     process.env.DATABASE_DRIVER = "pg";
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
     // Data in the shape master writes today, before 006.
-    await applyMigrations(sql, { until: "005_finance" });
+    await applyMigrations(raw, { until: "005_finance" });
     const [member] = await sql.query<{ id: string }>("INSERT INTO family_members (name) VALUES ('Bebê') RETURNING id");
     kid = member!.id;
     const [item] = await sql.query<{ id: string }>(
@@ -51,12 +54,15 @@ describe.skipIf(!url)("medication doses on Postgres", () => {
       [kid],
     );
     legacyItem = item!.id;
-    await applyMigrations(sql);
+    await applyMigrations(raw, { until: "013_food_taco" });
+    // The old migration runs again statement by statement (before families, which retire its ON CONFLICT targets).
+    const source = readFileSync(path.join(MIGRATIONS_DIR, "006_medication_doses.sql"), "utf8");
+    for (const statement of splitSql(source)) await raw.query(statement);
+    await applyMigrations(raw);
+    sql = familySql(raw);
   });
 
   test("006 runs twice and keeps old rows and old writes valid", async () => {
-    const source = readFileSync(path.join(MIGRATIONS_DIR, "006_medication_doses.sql"), "utf8");
-    for (const statement of splitSql(source)) await sql.query(statement);
     const item = await getItem(sql, legacyItem);
     expect(item).toMatchObject({ interval_hours: null, next_due_at: null, ends_on: null, due_date: "2026-10-17" });
     // What master does: day/month schedules and events without a time.

@@ -6,7 +6,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, test } from "vitest";
-import { createSql, type Sql } from "@/lib/db/client";
+import { createSql, type Sql, type SystemSql } from "@/lib/db/client";
+import { familySql } from "../helpers/tenant";
 import { applyMigrations, MIGRATIONS_DIR } from "@/lib/db/migrate";
 import { splitSql } from "@/lib/db/split-sql";
 import type { CreateEventInput } from "@/lib/domain/events";
@@ -46,17 +47,19 @@ const list = (query: string) => must(parseTransactionListQuery(new URLSearchPara
 
 describe.skipIf(!url)("finance on Postgres", () => {
   let sql: Sql;
+  let raw: SystemSql;
   let dogId = "";
 
   beforeAll(async () => {
     if (!url || !/test/.test(url)) throw new Error("TEST_DATABASE_URL must name a test database.");
     process.env.DATABASE_DRIVER = "pg";
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
 
     // Before 005: one costed event for every mapped (domain, category), plus a voided and a free one.
-    await applyMigrations(sql, { until: "004_history_areas" });
+    await applyMigrations(raw, { until: "004_history_areas" });
     const [dog] = await sql.query<{ id: string }>("INSERT INTO dogs (name) VALUES ('Thor') RETURNING id");
     const [car] = await sql.query<{ id: string }>("INSERT INTO vehicles (name) VALUES ('Onix') RETURNING id");
     const [person] = await sql.query<{ id: string }>("INSERT INTO family_members (name) VALUES ('Ana') RETURNING id");
@@ -77,7 +80,12 @@ describe.skipIf(!url)("finance on Postgres", () => {
        VALUES ('dog', $1, 'vet', 'Anulado', '2026-09-11', 5000, now()), ('dog', $1, 'vet', 'Grátis', '2026-09-12', 0, NULL)`,
       [dogId],
     );
-    await applyMigrations(sql);
+    await applyMigrations(raw, { until: "013_food_taco" });
+    // The old migration runs again statement by statement (before families, which retire its ON CONFLICT targets).
+    const source = readFileSync(path.join(MIGRATIONS_DIR, "005_finance.sql"), "utf8");
+    for (const statement of splitSql(source)) await raw.query(statement);
+    await applyMigrations(raw);
+    sql = familySql(raw);
   });
 
   test("005 seeds categories and backfills live costs with the same mapping as the code", async () => {
@@ -96,8 +104,6 @@ describe.skipIf(!url)("finance on Postgres", () => {
   });
 
   test("005 can run again statement by statement without duplicates", async () => {
-    const source = readFileSync(path.join(MIGRATIONS_DIR, "005_finance.sql"), "utf8");
-    for (const statement of splitSql(source)) await sql.query(statement);
     const [cats] = await sql.query<{ n: number }>("SELECT count(*)::int AS n FROM fin_categories");
     const [txs] = await sql.query<{ n: number }>("SELECT count(*)::int AS n FROM fin_transactions");
     expect(cats?.n).toBe(35);

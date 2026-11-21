@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { withTenant, type TenantScope } from "@/lib/tenant/scope";
 
 /** Who is calling: the person the key belongs to and the key itself (the agent). */
 export type AgentCaller = {
@@ -8,6 +9,8 @@ export type AgentCaller = {
   keyId: string | null;
   /** The name the person gave their agent (agent_keys.label). */
   agentName: string | null;
+  /** The family the key belongs to. Every query of the call is limited to it. */
+  tenant?: TenantScope | null;
 };
 
 /** panel = a one-tap button in the app (attributed, never logged as agent activity). */
@@ -19,7 +22,8 @@ const storage = new AsyncLocalStorage<ActorScope>();
 
 /** Runs fn with the caller in scope; repository inserts read it to fill created_by_user_id and agent_key_id. */
 export function withCaller<T>(caller: AgentCaller, channel: AgentChannel, fn: () => Promise<T>): Promise<T> {
-  return storage.run({ caller, channel }, fn);
+  const run = () => storage.run({ caller, channel }, fn);
+  return caller.tenant ? withTenant(caller.tenant, run) : run();
 }
 
 export function currentCaller(): AgentCaller | null {

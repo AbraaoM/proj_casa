@@ -58,3 +58,13 @@ export function parseLogin(
     value: { username: parsedUsername.value, password: parsedPassword.value },
   };
 }
+
+/** The name of a family shown in the app: 2 to 60 characters. */
+export function parseFamilyName(value: unknown): AccountResult<string> {
+  if (typeof value !== "string") return { ok: false, message: "Informe o nome da família." };
+  const name = value.replace(/\s+/g, " ").trim();
+  if (name.length < 2 || name.length > 60) {
+    return { ok: false, message: "O nome da família precisa ter de 2 a 60 caracteres." };
+  }
+  return { ok: true, value: name };
+}

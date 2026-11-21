@@ -29,3 +29,6 @@ export type FirstRunMode = "form" | "seed_only";
 export function firstRunMode(env: Record<string, string | undefined> = process.env): FirstRunMode {
   return isPublicDeploy(env) ? "seed_only" : "form";
 }
+
+/** Families the free tier can hold. Past this, sign-up closes instead of filling the database. */
+export const MAX_FAMILIES = 300;

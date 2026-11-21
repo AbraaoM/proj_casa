@@ -29,7 +29,7 @@ const textOrNull = (value: unknown) => (value == null ? null : String(value));
 
 export async function readBotConfig(sql: Sql): Promise<{ view: BotConfigView; secrets: BotConfigSecrets }> {
   const rows = await sql.query<Record<string, unknown>>(
-    `SELECT c.*, u.username AS updated_by_name FROM bot_config c LEFT JOIN users u ON u.id = c.updated_by WHERE c.id = 1`,
+    `SELECT c.*, u.username AS updated_by_name FROM bot_config c LEFT JOIN users u ON u.id = c.updated_by WHERE c.family_id = app_family_id()`,
   );
   const row = rows[0] ?? {};
   return {
@@ -86,10 +86,10 @@ export async function updateBotConfig(sql: Sql, patch: BotConfigPatch, userId: s
     return `${column} = $${params.length}${column === "webhook_registered_at" ? "::timestamptz" : ""}`;
   });
   params.push(userId);
-  // The row comes from migration 008; recreate it if someone deleted it.
-  await sql.query("INSERT INTO bot_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING");
+  // One row per family, created on first save.
+  await sql.query("INSERT INTO bot_config (family_id) VALUES (app_family_id()) ON CONFLICT (family_id) DO NOTHING");
   await sql.query(
-    `UPDATE bot_config SET ${sets.join(", ")}, updated_by = $${params.length}::uuid, updated_at = now() WHERE id = 1`,
+    `UPDATE bot_config SET ${sets.join(", ")}, updated_by = $${params.length}::uuid, updated_at = now() WHERE family_id = app_family_id()`,
     params,
   );
 }
@@ -232,7 +232,7 @@ export async function renameTelegramAgent(sql: Sql, userId: string, name: string
 export async function upsertChat(sql: Sql, chat: { id: number; kind: "private" | "group" | "supergroup"; title: string | null; active?: boolean }): Promise<void> {
   await sql.query(
     `INSERT INTO telegram_chats (chat_id, kind, title, active) VALUES ($1, $2, $3, $4)
-     ON CONFLICT (chat_id) DO UPDATE SET kind = EXCLUDED.kind, title = EXCLUDED.title, active = EXCLUDED.active, updated_at = now()`,
+     ON CONFLICT (family_id, chat_id) DO UPDATE SET kind = EXCLUDED.kind, title = EXCLUDED.title, active = EXCLUDED.active, updated_at = now()`,
     [chat.id, chat.kind, chat.title, chat.active ?? true],
   );
 }
@@ -260,7 +260,7 @@ export async function claimDigestChats(sql: Sql, today: string): Promise<number[
   for (const chatId of candidates) {
     const rows = await sql.query(
       `INSERT INTO telegram_chats (chat_id, kind, last_digest_on) VALUES ($1, 'private', $2::date)
-       ON CONFLICT (chat_id) DO UPDATE SET last_digest_on = $2::date, updated_at = now()
+       ON CONFLICT (family_id, chat_id) DO UPDATE SET last_digest_on = $2::date, updated_at = now()
        WHERE telegram_chats.last_digest_on IS DISTINCT FROM $2::date
        RETURNING chat_id`,
       [chatId, today],
@@ -289,7 +289,7 @@ export async function claimReportChats(sql: Sql, today: string): Promise<number[
   for (const chatId of candidates) {
     const rows = await sql.query(
       `INSERT INTO telegram_chats (chat_id, kind, last_report_on) VALUES ($1, 'private', $2::date)
-       ON CONFLICT (chat_id) DO UPDATE SET last_report_on = $2::date, updated_at = now()
+       ON CONFLICT (family_id, chat_id) DO UPDATE SET last_report_on = $2::date, updated_at = now()
        WHERE telegram_chats.last_report_on IS DISTINCT FROM $2::date
        RETURNING chat_id`,
       [chatId, today],

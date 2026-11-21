@@ -107,12 +107,18 @@ export async function rotateWebhookSecret(sql: Sql, actor: AccountUser | null, d
   return { ok: true, message: "Segredo novo gerado. Toque em Registrar webhook para o Telegram usar o novo." };
 }
 
-/** Calls setWebhook with <origin>/api/telegram/webhook and the secret (created if missing). */
+/** The webhook path of a family. The bare /api/telegram/webhook still answers for the original family (it was registered before families). */
+export function webhookPath(familyId: string): string {
+  return `/api/telegram/webhook/${familyId}`;
+}
+
+/** Calls setWebhook with <origin>/api/telegram/webhook/<family> and the secret (created if missing). */
 export async function registerWebhook(sql: Sql, actor: AccountUser | null, origin: string, deps: SettingsDeps = {}): Promise<SettingsResult> {
   if (!canManageAccounts(actor)) return { ok: false, message: NOT_ADMIN };
   let url: URL;
+  if (!actor?.family) return { ok: false, message: NOT_ADMIN };
   try {
-    url = new URL("/api/telegram/webhook", origin);
+    url = new URL(webhookPath(actor.family.familyId), origin);
   } catch {
     return { ok: false, message: "Não consegui saber o endereço deste app." };
   }

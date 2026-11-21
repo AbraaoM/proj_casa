@@ -2,7 +2,8 @@
  * POST /api/agent/finance/bills/bulk on a real Postgres. Skipped unless TEST_DATABASE_URL is set.
  */
 import { beforeAll, describe, expect, test } from "vitest";
-import { createSql, type Sql } from "@/lib/db/client";
+import { createSql, type Sql, type SystemSql } from "@/lib/db/client";
+import { familySql } from "../helpers/tenant";
 import { applyMigrations } from "@/lib/db/migrate";
 
 const url = process.env.TEST_DATABASE_URL;
@@ -10,6 +11,7 @@ const KEY = "chave-de-teste-bulk";
 
 describe.skipIf(!url)("bills bulk", () => {
   let sql: Sql;
+  let raw: SystemSql;
   let POST: (request: Request) => Promise<Response>;
 
   beforeAll(async () => {
@@ -17,10 +19,12 @@ describe.skipIf(!url)("bills bulk", () => {
     process.env.DATABASE_DRIVER = "pg";
     process.env.DATABASE_URL = url;
     process.env.AGENT_API_KEY = KEY;
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
-    await applyMigrations(sql);
+    await applyMigrations(raw);
+    sql = familySql(raw);
     ({ POST } = await import("@/app/api/agent/finance/bills/bulk/route"));
   });
 

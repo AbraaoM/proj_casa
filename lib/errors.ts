@@ -5,6 +5,9 @@ export type ErrorCode =
   | "agent_not_configured"
   | "agenda_not_connected"
   | "agenda_unavailable"
+  | "trial_expired"
+  | "no_family"
+  | "forbidden"
   | "internal_error";
 
 export type FieldError = { field: string; message: string };

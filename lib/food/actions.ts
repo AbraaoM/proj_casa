@@ -16,7 +16,7 @@ export async function buyFoodAction(formData: FormData): Promise<void> {
   if (typeof id !== "string" || !isUuid(id)) return;
   const sql = tryGetSql();
   if (!sql) return;
-  const panel = { userId: user.id, username: user.username, keyId: null, agentName: null };
+  const panel = { userId: user.id, username: user.username, keyId: null, agentName: null, tenant: user.family ?? null };
   await withCaller(panel, "panel", async () => {
     await buyShopping(sql, id, false);
   });
@@ -30,7 +30,7 @@ export async function fillShoppingAction(): Promise<void> {
   const sql = tryGetSql();
   if (!sql) return;
   const today = todayInTimeZone((await readSettings(sql)).timezone);
-  const panel = { userId: user.id, username: user.username, keyId: null, agentName: null };
+  const panel = { userId: user.id, username: user.username, keyId: null, agentName: null, tenant: user.family ?? null };
   await withCaller(panel, "panel", async () => {
     await generateShopping(sql, today);
   });

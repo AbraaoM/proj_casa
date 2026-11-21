@@ -4,7 +4,8 @@
  *   TEST_DATABASE_URL=postgresql://casa:casa@localhost:5432/casa_test npx vitest run tests/integration/finance-queries-db.test.ts
  */
 import { beforeAll, describe, expect, test } from "vitest";
-import { createSql, type Sql } from "@/lib/db/client";
+import { createSql, type Sql, type SystemSql } from "@/lib/db/client";
+import { familySql } from "../helpers/tenant";
 import { applyMigrations } from "@/lib/db/migrate";
 import { parseBillCreate } from "@/lib/domain/finance/validate";
 import { createBill, payBill } from "@/lib/services/finance/bills";
@@ -39,14 +40,17 @@ function counting(sql: Sql) {
 
 describe.skipIf(!url)("finance page queries", () => {
   let sql: Sql;
+  let raw: SystemSql;
 
   beforeAll(async () => {
     if (!url || !/test/.test(url)) throw new Error("TEST_DATABASE_URL must name a test database.");
     process.env.DATABASE_DRIVER = "pg";
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
-    await applyMigrations(sql);
+    await applyMigrations(raw);
+    sql = familySql(raw);
     const names = ["Aluguel", "Energia", "Água", "Internet", "Telefone", "Escola", "Plano de saúde"];
     for (const [index, name] of names.entries()) {
       const slug = `conta_${index}`;

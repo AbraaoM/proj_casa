@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { loginAction, setupFirstAccountAction } from "@/lib/auth/actions";
 import { firstRunMode } from "@/lib/auth/policy";
-import { tryGetSql } from "@/lib/db/client";
+import { tryGetSystemSql } from "@/lib/db/client";
 import { countUsers } from "@/lib/repositories/accounts";
 import { currentUser } from "@/lib/auth/session";
 import { FirstAccountForm, LoginForm } from "@/components/auth/auth-forms";
@@ -64,7 +64,7 @@ export default async function LoginPage() {
 }
 
 async function noAccountYet(): Promise<boolean> {
-  const sql = tryGetSql();
+  const sql = tryGetSystemSql();
   if (!sql) return false;
   try {
     return (await countUsers(sql)) === 0;

@@ -1,7 +1,7 @@
 import type { AgentCaller } from "@/lib/agent/actor";
 import { jsonError } from "@/lib/agent/http";
 import { decideAgentAccess, hashAgentKey, type AgentKeyStatus } from "@/lib/agent/keys";
-import { tryGetSql } from "@/lib/db/client";
+import { tryGetSystemSql } from "@/lib/db/client";
 import { isMissingSchema } from "@/lib/db/errors";
 import { findAgentKeyCaller, findOwnerCaller } from "@/lib/repositories/agent-keys";
 
@@ -77,14 +77,14 @@ export function readBearer(request: Request): string {
 }
 
 async function defaultLookup(keyHash: string | null): Promise<AgentKeyLookupResult> {
-  const sql = tryGetSql();
+  const sql = tryGetSystemSql();
   if (!sql) return { available: false, hasActiveKey: false, hashMatches: false };
   const status = await findAgentKeyCaller(sql, keyHash);
   return { available: true, ...status };
 }
 
 async function defaultOwner(): Promise<AgentCaller | null> {
-  const sql = tryGetSql();
+  const sql = tryGetSystemSql();
   if (!sql) return null;
   return findOwnerCaller(sql);
 }

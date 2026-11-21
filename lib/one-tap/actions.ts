@@ -59,7 +59,7 @@ export async function tapAction(_previous: TapState, formData: FormData): Promis
     const settings = await readSettings(sql);
     const today = todayInTimeZone(settings.timezone);
     // A tap is recorded as the person signed in, with no agent key.
-    const panel = { userId: user.id, username: user.username, keyId: null, agentName: null };
+    const panel = { userId: user.id, username: user.username, keyId: null, agentName: null, tenant: user.family ?? null };
     result = await withCaller(panel, "panel", async () => {
       if (tapKind === "pay") return tapPay(sql, id, shown as string, today);
       if (tapKind === "done") return tapDone(sql, id, shown, today);

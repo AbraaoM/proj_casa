@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { tryGetSql } from "@/lib/db/client";
+import { tryGetSystemSql } from "@/lib/db/client";
 import { isMissingSchema } from "@/lib/db/errors";
 import { findSessionUser } from "@/lib/repositories/accounts";
 import type { AccountUser } from "@/lib/auth/types";
@@ -12,7 +12,7 @@ export const currentUser = cache(readCurrentUser);
 async function readCurrentUser(): Promise<AccountUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const sql = tryGetSql();
+  const sql = tryGetSystemSql();
   if (!sql) return null;
   try {
     return await findSessionUser(sql, hashSessionToken(token));

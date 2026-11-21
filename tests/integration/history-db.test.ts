@@ -8,7 +8,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { beforeAll, describe, expect, test } from "vitest";
-import { createSql, type Sql } from "@/lib/db/client";
+import { createSql, type Sql, type SystemSql } from "@/lib/db/client";
+import { familySql } from "../helpers/tenant";
 import { applyMigrations, MIGRATIONS_DIR } from "@/lib/db/migrate";
 import { splitSql } from "@/lib/db/split-sql";
 import { createArea, updateArea } from "@/lib/services/areas";
@@ -84,18 +85,20 @@ const listAll: EventListQuery = {
 
 describe.skipIf(!url)("history and areas on Postgres", () => {
   let sql: Sql;
+  let raw: SystemSql;
   let legacyEventId = "";
   let legacyDogId = "";
 
   beforeAll(async () => {
     if (!url || !/test/.test(url)) throw new Error("TEST_DATABASE_URL must name a test database.");
     process.env.DATABASE_DRIVER = "pg";
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
 
     // Old shape first: an event that only knows its item.
-    await applyMigrations(sql, { until: "003_agent_keys" });
+    await applyMigrations(raw, { until: "003_agent_keys" });
     const [dog] = await sql.query<{ id: string }>("INSERT INTO dogs (name) VALUES ('Thor') RETURNING id");
     legacyDogId = dog!.id;
     const [item] = await sql.query<{ id: string }>(
@@ -108,7 +111,12 @@ describe.skipIf(!url)("history and areas on Postgres", () => {
     );
     legacyEventId = event!.id;
 
-    await applyMigrations(sql);
+    await applyMigrations(raw, { until: "013_food_taco" });
+    // The old migration runs again statement by statement (before families, which retire its ON CONFLICT targets).
+    const source = readFileSync(path.join(MIGRATIONS_DIR, "004_history_areas.sql"), "utf8");
+    for (const statement of splitSql(source)) await raw.query(statement);
+    await applyMigrations(raw);
+    sql = familySql(raw);
   });
 
   test("004 backfills subject, category and title on old events", async () => {
@@ -120,8 +128,6 @@ describe.skipIf(!url)("history and areas on Postgres", () => {
   });
 
   test("004 can run again statement by statement", async () => {
-    const source = readFileSync(path.join(MIGRATIONS_DIR, "004_history_areas.sql"), "utf8");
-    for (const statement of splitSql(source)) await sql.query(statement);
     const [count] = await sql.query<{ n: string }>("SELECT count(*)::text AS n FROM care_events");
     expect(count?.n).toBe("1");
   });

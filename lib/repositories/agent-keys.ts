@@ -1,5 +1,6 @@
 import type { AgentCaller } from "@/lib/agent/actor";
-import type { Sql } from "@/lib/db/client";
+import type { Sql, SystemSql } from "@/lib/db/client";
+import type { TenantScope } from "@/lib/tenant/scope";
 
 export type StoredAgentKey = {
   id: string;
@@ -11,18 +12,21 @@ export type StoredAgentKey = {
   revokedAt: string | null;
 };
 
-/** Whether any key is active and, when the hash matches one, who it belongs to. */
+/** Whether any key is active and, when the hash matches one, who it belongs to (person, agent, family). Owner connection: no family is known yet. */
 export async function findAgentKeyCaller(
-  sql: Sql,
+  sql: SystemSql,
   keyHash: string | null,
 ): Promise<{ hasActiveKey: boolean; hashMatches: boolean; caller: AgentCaller | null }> {
   const rows = await sql.query<Record<string, unknown>>(
     `SELECT
        (SELECT count(*)::int FROM agent_keys WHERE revoked_at IS NULL) AS active_count,
-       k.id::text AS key_id, k.label, u.id::text AS user_id, u.username
+       k.id::text AS key_id, k.label, u.id::text AS user_id, u.username,
+       f.id::text AS family_id, f.name AS family_name, f.never_expires, f.trial_ends_at, fa.role AS family_role
      FROM (SELECT 1) AS one
      LEFT JOIN agent_keys k ON k.revoked_at IS NULL AND k.key_hash = $1
-     LEFT JOIN users u ON u.id = k.created_by`,
+     LEFT JOIN users u ON u.id = k.created_by
+     LEFT JOIN families f ON f.id = k.family_id
+     LEFT JOIN family_accounts fa ON fa.user_id = u.id AND fa.family_id = k.family_id`,
     [keyHash ?? ""],
   );
   const row = rows[0];
@@ -36,20 +40,47 @@ export async function findAgentKeyCaller(
           agentName: String(row!.label),
           userId: row!.user_id == null ? null : String(row!.user_id),
           username: row!.username == null ? null : String(row!.username),
+          tenant: tenantOf(row!),
         }
       : null,
   };
 }
 
-/** The first master account: who the AGENT_API_KEY environment secret acts as. */
-export async function findOwnerCaller(sql: Sql): Promise<AgentCaller | null> {
+/**
+ * The AGENT_API_KEY environment secret acts as the first owner of the original family:
+ * the one the owner's own agent, Telegram bot and /casa already use.
+ */
+export async function findOwnerCaller(sql: SystemSql): Promise<AgentCaller | null> {
   const rows = await sql.query<Record<string, unknown>>(
-    `SELECT id::text AS id, username FROM users
-     ORDER BY CASE WHEN role = 'admin' THEN 0 ELSE 1 END, created_at LIMIT 1`,
+    `SELECT u.id::text AS user_id, u.username,
+            f.id::text AS family_id, f.name AS family_name, f.never_expires, f.trial_ends_at, fa.role AS family_role
+     FROM families f
+     LEFT JOIN family_accounts fa ON fa.family_id = f.id AND fa.role = 'owner'
+     LEFT JOIN users u ON u.id = fa.user_id
+     WHERE f.is_original
+     ORDER BY u.created_at NULLS LAST
+     LIMIT 1`,
   );
   const row = rows[0];
   if (!row) return null;
-  return { userId: String(row.id), username: String(row.username), keyId: null, agentName: null };
+  return {
+    userId: row.user_id == null ? null : String(row.user_id),
+    username: row.username == null ? null : String(row.username),
+    keyId: null,
+    agentName: null,
+    tenant: tenantOf(row),
+  };
+}
+
+function tenantOf(row: Record<string, unknown>): TenantScope | null {
+  if (row.family_id == null) return null;
+  return {
+    familyId: String(row.family_id),
+    familyName: String(row.family_name ?? ""),
+    role: row.family_role === "owner" ? "owner" : "member",
+    neverExpires: row.never_expires === true,
+    trialEndsAt: row.trial_ends_at == null ? null : row.trial_ends_at instanceof Date ? row.trial_ends_at.toISOString() : String(row.trial_ends_at),
+  };
 }
 
 export async function insertAgentKey(

@@ -102,6 +102,18 @@ The app surfaces what needs attention, timelines, and history. It does **not** a
 - Low stock is at or below `min_quantity`. `gerar_lista` adds the shortfall, and skips an item already on the open list. One tap on the screen does the same. **Comprado** only marks the line; it does not change stock. `marcar_compra` with `restock: true` adds the quantity, once.
 - A meal is for one day, never a future day. Voiding it (`anular_refeicao`) hides it from the day and frees the `external_key`. Nothing is deleted. `013_food_taco` adds `taco_id`; run it with `012_food`.
 
+## Families (multi-tenant)
+Every household is a family. People sign up, create their own family, and invite others. Data of one family is never visible to another.
+- **Isolation is enforced in Postgres.** Every business table has `family_id` (composite foreign keys keep references inside one family) and row level security with the policy `family_id = app_family_id()`. The app connects as the table owner (`casa_owner`, which bypasses RLS), so `lib/db/tenant.ts` runs each query in one transaction as the NOLOGIN role `casa_app` with `app.family_id` set. With no family in scope it sees nothing and fails closed (`TenantScopeError`).
+- `getSql()` from `lib/db/client` is always limited to one family: the scope comes from `withTenant()` (agent API, MCP, Telegram, cron) or from the signed-in session. `getSystemSql()` is the unscoped owner connection. Use it only for identity code (login, sign-up, invites, resolving a key or a Telegram family) and always name the person or the family explicitly. Never use it for business data.
+- Never write SQL for business data without relying on the scope. Do not add `WHERE family_id = ...` by hand to bypass it, and do not give a new table without `family_id`, RLS and a policy: `tests/integration/tenancy-db.test.ts` fails if one is missing.
+- Roles: `owner` (invites, revokes, resets passwords, configures the bot) and `member`. One account belongs to one family. Server Actions check it with `canManageAccounts` and the tenant scope, never with the client.
+- Invites are a link with a one-time code (only the hash is stored), valid for 7 days, revocable. Sign-up and the invite form are text-entry screens, the same exception as login: they create an account.
+- Trial: a new family has 14 days (`families.trial_ends_at`). After that the family can read but every write is refused (`TrialExpiredError`, 403 `trial_expired`) and the app shows a clear screen. The original family (`is_original`, `never_expires`) never expires. Nothing is charged.
+- Telegram: each family has its own bot and webhook, `/api/telegram/webhook/<familyId>`. The bare `/api/telegram/webhook` still answers for the original family (it was registered before families). Cron jobs run once per family whose bot is on and whose trial is active.
+- Agent keys belong to a family, so the same key always acts in the same family. The `AGENT_API_KEY` environment key maps to the original family.
+- Migrations are two-phase. `014_families` is additive (the previous release keeps working, because family_id has a default). `015_families_finish` runs after the release that knows families is live. Rolling back to a release older than families after 015 breaks writes, so roll back only to a release that has families.
+
 ## Never break the core experience
 The person will use this daily. A broken screen or wrong recommendation creates distrust.
 - Prefer Server Components when possible.

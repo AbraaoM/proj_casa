@@ -9,7 +9,8 @@ import { randomBytes } from "node:crypto";
 import { MockLanguageModelV3 } from "ai/test";
 import type { LanguageModelV3Content, LanguageModelV3GenerateResult } from "@ai-sdk/provider";
 import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
-import { createSql, type Sql } from "@/lib/db/client";
+import { createSql, type Sql, type SystemSql } from "@/lib/db/client";
+import { familySql, ORIGINAL_FAMILY_ID, scopeFor } from "../helpers/tenant";
 import { applyMigrations } from "@/lib/db/migrate";
 import type { AccountUser } from "@/lib/auth/types";
 import type { TelegramClient, TgUpdate } from "@/lib/bot/telegram";
@@ -53,6 +54,7 @@ function scripted(steps: Array<string | { tool: string; input: Record<string, un
 
 describe.skipIf(!url)("telegram bot", () => {
   let sql: Sql;
+  let raw: SystemSql;
   let admin: AccountUser;
   let member: AccountUser;
   let sent: Sent[] = [];
@@ -79,7 +81,8 @@ describe.skipIf(!url)("telegram bot", () => {
   });
   const handle = async (update: TgUpdate) => {
     const { handleTelegramUpdate } = await import("@/lib/bot/webhook");
-    await handleTelegramUpdate(update, deps());
+    const { withTenant } = await import("@/lib/tenant/scope");
+    await withTenant(scopeFor(ORIGINAL_FAMILY_ID), () => handleTelegramUpdate(update, deps()));
   };
   const messages = () => sent.filter((entry) => entry.method === "sendMessage");
   const fakeFetch = async (input: string, init?: RequestInit) => {
@@ -94,13 +97,15 @@ describe.skipIf(!url)("telegram bot", () => {
     vi.stubEnv("DATABASE_DRIVER", "pg");
     vi.stubEnv("DATABASE_URL", url);
     vi.stubEnv("CASA_SECRET_KEY", MASTER);
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
-    await applyMigrations(sql);
-    const { insertFirstUser, insertUser } = await import("@/lib/repositories/accounts");
-    admin = (await insertFirstUser(sql, "dono", "senha-segura-1"))!;
-    member = await insertUser(sql, "pessoa", "senha-segura-2");
+    await applyMigrations(raw);
+    sql = familySql(raw);
+    const { insertFirstUser, insertFamilyUser } = await import("@/lib/repositories/accounts");
+    admin = (await insertFirstUser(raw, "dono", "senha-segura-1"))!;
+    member = await insertFamilyUser(raw, ORIGINAL_FAMILY_ID, "pessoa", "senha-segura-2");
   });
 
   beforeEach(() => {
@@ -149,7 +154,7 @@ describe.skipIf(!url)("telegram bot", () => {
     const result = await registerWebhook(sql, admin, "https://casa.exemplo.test", { fetch: fakeFetch });
     expect(result).toMatchObject({ ok: true, message: expect.stringContaining("@casa_teste_bot") });
     const call = sent.find((entry) => entry.method === "setWebhook")!;
-    expect(call.body).toMatchObject({ url: "https://casa.exemplo.test/api/telegram/webhook", allowed_updates: ["message", "callback_query", "my_chat_member"] });
+    expect(call.body).toMatchObject({ url: `https://casa.exemplo.test/api/telegram/webhook/${ORIGINAL_FAMILY_ID}`, allowed_updates: ["message", "callback_query", "my_chat_member"] });
     const { loadBotRuntime } = await import("@/lib/bot/config");
     const loaded = await loadBotRuntime(sql);
     expect(loaded.ok && call.body.secret_token).toBe(loaded.ok ? loaded.runtime.webhookSecret : "");

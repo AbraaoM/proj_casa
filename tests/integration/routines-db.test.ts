@@ -7,7 +7,8 @@
 import { beforeAll, describe, expect, test } from "vitest";
 import { withCaller, type AgentCaller } from "@/lib/agent/actor";
 import { AGENT_TOOLS, type ToolContext } from "@/lib/agent/tools";
-import { createSql, type Sql } from "@/lib/db/client";
+import { createSql, type Sql, type SystemSql } from "@/lib/db/client";
+import { familySql } from "../helpers/tenant";
 import { applyMigrations } from "@/lib/db/migrate";
 import { parseAreaCreate } from "@/lib/domain/areas";
 import { addDays, todayInTimeZone } from "@/lib/domain/dates";
@@ -34,6 +35,7 @@ function tool(name: string) {
 
 describe.skipIf(!url)("house routines", () => {
   let sql: Sql;
+  let raw: SystemSql;
   let today: string;
   let timeZone: string;
   let context: ToolContext;
@@ -46,16 +48,19 @@ describe.skipIf(!url)("house routines", () => {
     process.env.DATABASE_DRIVER = "pg";
     process.env.DATABASE_URL = url;
     process.env.AGENT_API_KEY = KEY;
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
-    await applyMigrations(sql);
+    await applyMigrations(raw);
+    sql = familySql(raw);
     timeZone = (await readSettings(sql)).timezone;
     today = todayInTimeZone(timeZone);
     context = { sql, today, clock: { now: new Date().toISOString(), timeZone } };
     await createArea(sql, must(parseAreaCreate({ slug: "banheiro_teste", name: "Banheiro teste" })));
     await createArea(sql, must(parseAreaCreate({ slug: "quarto_teste", name: "Quarto teste" })));
-    const [user] = await sql.query<{ id: string }>("INSERT INTO users (username, password_hash) VALUES ('pessoa_a', 'x') RETURNING id", []);
+    const [user] = await raw.query<{ id: string }>("INSERT INTO users (username, password_hash) VALUES ('pessoa_a', 'x') RETURNING id", []);
+    await raw.query("INSERT INTO family_accounts (user_id, family_id, role) VALUES ($1::uuid, '0f5a4e2c-6d1b-4c3a-9a7e-2b8d1c4e5f60', 'member')", [user!.id]);
     person = { userId: user!.id, username: "pessoa_a", keyId: null, agentName: null };
   });
 

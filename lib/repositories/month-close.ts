@@ -26,7 +26,7 @@ export async function saveMonthClose(sql: Sql, close: MonthClose): Promise<void>
   await sql.query(
     `INSERT INTO fin_month_closes (month, closed_on, snapshot)
      VALUES ($1::date, $2::date, $3::jsonb)
-     ON CONFLICT (month) DO UPDATE
+     ON CONFLICT (family_id, month) DO UPDATE
        SET closed_on = EXCLUDED.closed_on, snapshot = EXCLUDED.snapshot, updated_at = now()`,
     [monthDate(close.month), close.closed_on, JSON.stringify(close)],
   );

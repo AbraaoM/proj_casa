@@ -2,8 +2,8 @@ import { changeOwnPasswordAction, createUserAction, setPasswordAction } from "@/
 import { currentUser } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { canManageAccounts } from "@/lib/auth/policy";
-import { getSql } from "@/lib/db/client";
-import { listUsers } from "@/lib/repositories/accounts";
+import { getSystemSql } from "@/lib/db/client";
+import { listFamilyUsers } from "@/lib/repositories/accounts";
 import { CreateUserForm, OwnPasswordForm, SetPasswordForm } from "@/components/auth/auth-forms";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export default async function UsersPage() {
   const actor = await currentUser();
   if (!actor) redirect("/login");
-  const users = await listUsers(getSql());
+  if (!actor.family) redirect("/login");
+  const users = await listFamilyUsers(getSystemSql(), actor.family.familyId);
   const others = users.filter((user) => user.id !== actor.id);
   const master = canManageAccounts(actor);
 

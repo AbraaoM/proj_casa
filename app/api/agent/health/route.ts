@@ -1,3 +1,4 @@
+import { withCaller, type AgentCaller } from "@/lib/agent/actor";
 import { authorize } from "@/lib/agent/auth";
 import { jsonOk, toErrorResponse } from "@/lib/agent/http";
 import { tryGetSql } from "@/lib/db/client";
@@ -9,7 +10,11 @@ import { getSchemaVersion, getSettings } from "@/lib/repositories/settings";
 export async function GET(request: Request) {
   const auth = await authorize(request);
   if (!auth.ok) return auth.response;
-  const caller = { user: auth.caller.username, agent_name: auth.caller.agentName, agent_key_id: auth.caller.keyId };
+  return withCaller(auth.caller, "rest", () => health(auth.caller));
+}
+
+async function health(authCaller: AgentCaller): Promise<Response> {
+  const caller = { user: authCaller.username, agent_name: authCaller.agentName, agent_key_id: authCaller.keyId };
 
   const sql = tryGetSql();
   if (!sql) {

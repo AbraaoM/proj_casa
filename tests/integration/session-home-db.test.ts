@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, test, vi } from "vitest";
 
 const url = process.env.TEST_DATABASE_URL;
 const jar = vi.hoisted(() => ({ token: null as string | null }));
-const loadDashboard = vi.hoisted(() => vi.fn(async () => ({ status: "ready" })));
+const loadDashboard = vi.hoisted(() => vi.fn(async () => ({ status: "ready", summary: { overdue: 0, due_today: 0 } })));
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: (name: string) => (name === "casa_session" && jar.token ? { name, value: jar.token } : undefined) }),
@@ -20,6 +20,7 @@ describe.skipIf(!url)("/ with a real session table", () => {
   let AppShell: unknown;
   let HomePage: () => Promise<{ type: unknown }>;
   let sql: import("@/lib/db/client").Sql;
+  let raw: import("@/lib/db/client").SystemSql;
   let userId = "";
 
   beforeAll(async () => {
@@ -27,13 +28,16 @@ describe.skipIf(!url)("/ with a real session table", () => {
     process.env.DATABASE_DRIVER = "pg";
     process.env.DATABASE_URL = url;
     const { createSql } = await import("@/lib/db/client");
+    const { familySql } = await import("../helpers/tenant");
     const { applyMigrations } = await import("@/lib/db/migrate");
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
-    await applyMigrations(sql);
+    await applyMigrations(raw);
+    sql = familySql(raw);
     const { insertFirstUser } = await import("@/lib/repositories/accounts");
-    const user = await insertFirstUser(sql, "dono", "senha-de-teste");
+    const user = await insertFirstUser(raw, "dono", "senha-de-teste");
     userId = user!.id;
     ({ default: HomePage } = (await import("@/app/page")) as unknown as { default: typeof HomePage });
     ({ Landing } = await import("@/components/landing/landing"));
@@ -42,7 +46,7 @@ describe.skipIf(!url)("/ with a real session table", () => {
 
   async function session(token: string, expiresSql: string) {
     const { hashSessionToken } = await import("@/lib/auth/token");
-    await sql.query(`INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1::uuid, $2, ${expiresSql})`, [
+    await raw.query(`INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1::uuid, $2, ${expiresSql})`, [
       userId,
       hashSessionToken(token),
     ]);

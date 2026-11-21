@@ -2,11 +2,12 @@ import { describe, expect, test, vi } from "vitest";
 import { NO_MASTER_KEY, NOT_ADMIN, readSettingsForm, registerWebhook, rotateWebhookSecret, saveSettings, setEnabled, testBot } from "@/lib/bot/settings";
 import { sameSecret } from "@/lib/bot/runtime";
 import type { Sql } from "@/lib/db/client";
+import { scopeFor, ORIGINAL_FAMILY_ID } from "../helpers/tenant";
 
 // A database that must not be touched: the guards answer first.
 const untouchable = { query: vi.fn(async () => { throw new Error("database touched"); }) } as unknown as Sql;
 const member = { id: "00000000-0000-4000-8000-000000000002", username: "pessoa", role: "member" as const };
-const admin = { id: "00000000-0000-4000-8000-000000000001", username: "dono", role: "admin" as const };
+const admin = { id: "00000000-0000-4000-8000-000000000001", username: "dono", role: "admin" as const, family: scopeFor(ORIGINAL_FAMILY_ID) };
 const input = { provider: "groq", model: "", baseUrl: "", aiApiKey: "gsk_fake_key_for_tests", telegramToken: "" };
 
 describe("bot settings guards", () => {

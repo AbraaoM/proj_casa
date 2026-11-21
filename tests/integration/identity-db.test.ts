@@ -6,7 +6,8 @@
  *   TEST_DATABASE_URL=postgresql://casa:casa@localhost:5432/casa_test npx vitest run tests/integration/identity-db.test.ts
  */
 import { beforeAll, describe, expect, test, vi } from "vitest";
-import { createSql, type Sql } from "@/lib/db/client";
+import { createSql, type Sql, type SystemSql } from "@/lib/db/client";
+import { familySql, ORIGINAL_FAMILY_ID } from "../helpers/tenant";
 import { applyMigrations } from "@/lib/db/migrate";
 import { newAgentKey } from "@/lib/agent/keys";
 
@@ -18,6 +19,7 @@ const url = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!url)("identity and attribution", () => {
   let sql: Sql;
+  let raw: SystemSql;
   let ownerId = "";
   let memberId = "";
   let legacyKeyToken = "";
@@ -25,20 +27,21 @@ describe.skipIf(!url)("identity and attribution", () => {
   let memberKeyId = "";
   let dogId = "";
 
-  const n = async (query: string, params: unknown[] = []) => Number((await sql.query<{ n: unknown }>(query, params))[0]?.n ?? 0);
+  const n = async (query: string, params: unknown[] = []) => Number((await (sql ?? raw).query<{ n: unknown }>(query, params))[0]?.n ?? 0);
 
   beforeAll(async () => {
     if (!url || !/test/.test(url)) throw new Error("TEST_DATABASE_URL must name a test database.");
     vi.stubEnv("DATABASE_DRIVER", "pg");
     vi.stubEnv("DATABASE_URL", url);
     vi.stubEnv("AGENT_API_KEY", "");
-    sql = createSql(url);
+    raw = createSql(url);
+    sql = raw;
     await sql.query("DROP SCHEMA IF EXISTS public CASCADE");
     await sql.query("CREATE SCHEMA public");
-    await applyMigrations(sql, { until: "006_medication_doses" });
+    await applyMigrations(raw, { until: "006_medication_doses" });
 
     // An install from before: the account on the initial password and a key with no owner.
-    expect(await n("SELECT count(*)::int AS n FROM users")).toBe(0);
+    expect(Number((await raw.query<{ n: unknown }>("SELECT count(*)::int AS n FROM users"))[0]?.n)).toBe(0);
     const [legacy] = await sql.query<{ id: string }>(
       "INSERT INTO users (username, password_hash, role) VALUES ('dono', crypt('admin', gen_salt('bf')), 'admin') RETURNING id::text AS id",
     );
@@ -47,7 +50,8 @@ describe.skipIf(!url)("identity and attribution", () => {
     legacyKeyToken = legacyKey.token;
     await sql.query("INSERT INTO agent_keys (label, key_prefix, key_hash) VALUES ('Agente antigo', $1, $2)", [legacyKey.prefix, legacyKey.hash]);
 
-    await applyMigrations(sql);
+    await applyMigrations(raw);
+    sql = familySql(raw);
   });
 
   test("a fresh database has no account; the first one is created once, as master", async () => {
@@ -59,31 +63,34 @@ describe.skipIf(!url)("identity and attribution", () => {
   });
 
   test("007 flags the initial password and gives the ownerless key to the first master", async () => {
-    const [owner] = await sql.query<{ must_change_password: boolean; password_is_default: boolean }>(
+    const [owner] = await raw.query<{ must_change_password: boolean; password_is_default: boolean }>(
       "SELECT must_change_password, password_is_default FROM users WHERE id = $1::uuid",
       [ownerId],
     );
     expect(owner).toEqual({ must_change_password: true, password_is_default: true });
     expect(await n("SELECT count(*)::int AS n FROM agent_keys WHERE created_by = $1::uuid", [ownerId])).toBe(1);
+    // 014 gives every account and key to the original family.
+    const [membership] = await raw.query<{ role: string }>("SELECT role FROM family_accounts WHERE user_id = $1::uuid", [ownerId]);
+    expect(membership).toEqual({ role: "owner" });
   });
 
   test("changing one's own password clears the flags; a master reset forces a new one", async () => {
-    const { updateOwnPassword, updateUserPassword, insertUser, findUserByPassword } = await import("@/lib/repositories/accounts");
-    expect(await updateOwnPassword(sql, ownerId, "senha-nova-dono", "errada")).toBe(false);
-    expect(await updateOwnPassword(sql, ownerId, "senha-nova-dono", "admin")).toBe(true);
-    const owner = await findUserByPassword(sql, "dono", "senha-nova-dono");
+    const { updateOwnPassword, updateFamilyUserPassword, insertFamilyUser, findUserByPassword } = await import("@/lib/repositories/accounts");
+    expect(await updateOwnPassword(raw, ownerId, "senha-nova-dono", "errada")).toBe(false);
+    expect(await updateOwnPassword(raw, ownerId, "senha-nova-dono", "admin")).toBe(true);
+    const owner = await findUserByPassword(raw, "dono", "senha-nova-dono");
     expect(owner).toMatchObject({ mustChangePassword: false, passwordIsDefault: false });
 
-    const member = await insertUser(sql, "pessoa", "senha-da-pessoa");
+    const member = await insertFamilyUser(raw, ORIGINAL_FAMILY_ID, "pessoa", "senha-da-pessoa");
     memberId = member.id;
-    expect(await updateUserPassword(sql, memberId, "temporaria-123")).toBe(true);
-    expect(await findUserByPassword(sql, "pessoa", "temporaria-123")).toMatchObject({ mustChangePassword: true });
+    expect(await updateFamilyUserPassword(raw, ORIGINAL_FAMILY_ID, memberId, "temporaria-123")).toBe(true);
+    expect(await findUserByPassword(raw, "pessoa", "temporaria-123")).toMatchObject({ mustChangePassword: true });
   });
 
   test("the old key keeps working and now acts as its owner", async () => {
     const { authorizeToken } = await import("@/lib/agent/auth");
     const result = await authorizeToken(legacyKeyToken);
-    expect(result).toEqual({ ok: true, caller: { userId: ownerId, username: "dono", keyId: expect.any(String), agentName: "Agente antigo" } });
+    expect(result).toEqual({ ok: true, caller: { userId: ownerId, username: "dono", keyId: expect.any(String), agentName: "Agente antigo", tenant: expect.objectContaining({ familyId: ORIGINAL_FAMILY_ID, role: "owner", neverExpires: true }) } });
   });
 
   test("REST writes record the person and the key, and an activity row", async () => {
