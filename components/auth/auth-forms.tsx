@@ -136,7 +136,7 @@ function AuthForm({
     <form ref={ref} action={formAction} className="mt-4 space-y-4">
       {children}
       {state.message ? (
-        <p className={state.ok ? "text-sm text-accent" : "text-sm text-black dark:text-white"} aria-live="polite">
+        <p className={state.ok ? "text-sm text-accent-dark dark:text-accent-light" : "text-sm text-black dark:text-white"} aria-live="polite">
           {state.message}
         </p>
       ) : null}

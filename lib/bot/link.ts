@@ -9,7 +9,7 @@ export function telegramStartUrl(botUsername: string, code: string): string {
 export async function telegramLinkStart(sql: Sql, actor: AccountUser): Promise<{ ok: boolean; message: string; url?: string }> {
   const { view } = await readBotConfig(sql);
   if (!view.enabled || !view.botUsername) {
-    return { ok: false, message: "O bot do Telegram ainda não está ligado. Quem administra a Casa liga em Agentes → Bot." };
+    return { ok: false, message: "O bot do Telegram ainda não está ligado. Quem administra a família liga em Agentes → Bot." };
   }
   const code = await createLinkCode(sql, actor.id);
   return {

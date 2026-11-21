@@ -16,9 +16,9 @@ export function Sidebar({ username }: { username: string }) {
   const active = activeSector(usePathname());
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-20 flex-col border-r border-line bg-soft-white px-3 py-6 dark:border-line-dark dark:bg-soft-black md:flex lg:w-60 lg:px-5">
-      <Link href="/" className={`flex items-center gap-2.5 rounded-md px-2 ${FOCUS}`} aria-label="Casa, painel">
+      <Link href="/" className={`flex items-center gap-2.5 rounded-md px-2 ${FOCUS}`} aria-label="Ametista, painel">
         <LogoMark className="h-9 w-9 shrink-0" />
-        <span className="hidden font-display text-3xl leading-none tracking-tight lg:inline">Casa</span>
+        <span className="hidden font-display text-3xl leading-none tracking-tight lg:inline">Ametista</span>
       </Link>
       <nav aria-label="Setores" className="mt-10">
         <ul className="space-y-1">
@@ -79,10 +79,10 @@ function SideLink({ entry, active }: { entry: NavEntry; active: boolean }) {
 export function TopBar() {
   return (
     <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] md:hidden">
-      <Link href="/" className={`rounded-md ${FOCUS}`} aria-label="Casa, painel">
+      <Link href="/" className={`rounded-md ${FOCUS}`} aria-label="Ametista, painel">
         <span className="inline-flex items-center gap-2">
           <LogoMark className="h-8 w-8" />
-          <span className="font-display text-2xl leading-none tracking-tight">Casa</span>
+          <span className="font-display text-2xl leading-none tracking-tight">Ametista</span>
         </span>
       </Link>
       <ThemeToggle />

@@ -48,7 +48,7 @@ export function CreateKeyForm({ action }: { action: Action }) {
     <form ref={formRef} action={formAction} className="mt-4 space-y-4">
       {state.token ? (
         <div className="space-y-4">
-          <p className="text-sm text-accent" aria-live="polite">
+          <p className="text-sm text-accent-dark dark:text-accent-light" aria-live="polite">
             {state.message}
           </p>
           <label htmlFor={`${id}-secret`} className="block">
@@ -90,7 +90,7 @@ export function CreateKeyForm({ action }: { action: Action }) {
         />
       </label>
       {state.message && !state.token ? (
-        <p className={state.ok ? "text-sm text-accent" : "text-sm text-black dark:text-white"} aria-live="polite">
+        <p className={state.ok ? "text-sm text-accent-dark dark:text-accent-light" : "text-sm text-black dark:text-white"} aria-live="polite">
           {state.message}
         </p>
       ) : null}
@@ -118,7 +118,7 @@ export function RevokeKeyForm({ action, id }: { action: Action; id: string }) {
       <input type="hidden" name="id" value={id} />
       <p className="text-sm">Revogar esta chave? O agente que a usa perde o acesso.</p>
       {state.message ? (
-        <p className={state.ok ? "text-sm text-accent" : "text-sm text-black dark:text-white"} aria-live="polite">
+        <p className={state.ok ? "text-sm text-accent-dark dark:text-accent-light" : "text-sm text-black dark:text-white"} aria-live="polite">
           {state.message}
         </p>
       ) : null}

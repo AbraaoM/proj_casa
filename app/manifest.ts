@@ -5,15 +5,15 @@ const SHORTCUT_ICON = [{ src: "/icons/icon-192.png", sizes: "192x192", type: "im
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Casa",
-    short_name: "Casa",
-    description: "O que pede atenção em casa.",
+    name: "Ametista",
+    short_name: "Ametista",
+    description: "A casa da sua família, organizada: cães, carros, rotinas, contas e remédios.",
     id: "/",
     start_url: "/",
     scope: "/",
     display: "standalone",
     background_color: "#fafafa",
-    theme_color: "#10b981",
+    theme_color: "#9966cc",
     lang: "pt-BR",
     launch_handler: { client_mode: "navigate-existing" },
     icons: [

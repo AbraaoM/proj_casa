@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, Inter } from "next/font/google";
 import "./globals.css";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
 const anton = Anton({
   weight: "400",
@@ -21,12 +22,22 @@ try {
 } catch (e) {}
 `;
 
+// The app itself is private: no indexing by default. The public pages (landing, sign-up, legal) opt in.
 export const metadata: Metadata = {
-  title: "Casa",
-  description: "O que pede atenção em casa.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: `${SITE_NAME}: ${SITE_TAGLINE}`, template: `%s · ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
   robots: { index: false, follow: false },
-  applicationName: "Casa",
-  appleWebApp: { capable: true, title: "Casa", statusBarStyle: "black-translucent" },
+  applicationName: SITE_NAME,
+  appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: "black-translucent" },
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    siteName: SITE_NAME,
+    title: `${SITE_NAME}: ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: { card: "summary_large_image", title: `${SITE_NAME}: ${SITE_TAGLINE}`, description: SITE_DESCRIPTION },
 };
 
 export const viewport: Viewport = {

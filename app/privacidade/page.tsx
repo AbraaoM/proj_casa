@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 
-export const metadata: Metadata = { title: "Privacidade (rascunho)", description: "Que dados o app guarda, para quê e com quem ficam." };
+export const metadata: Metadata = { title: "Privacidade (rascunho)", description: "Que dados o app guarda, para quê e com quem ficam.", alternates: { canonical: "/privacidade" }, robots: { index: true, follow: true } };
 
 export default function PrivacyPage() {
   return (

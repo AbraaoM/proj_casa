@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { HomeDashboard } from "@/components/dashboard/home-dashboard";
@@ -8,9 +9,21 @@ import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { currentUser } from "@/lib/auth/session";
 import { pressingCount } from "@/lib/domain/attention";
 import { loadDashboard } from "@/lib/services/dashboard";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 import { searchQuery } from "@/lib/ui/search";
 
 export const dynamic = "force-dynamic";
+
+/** The landing is public and indexable; the signed-in dashboard is not (the layout default is noindex). */
+export async function generateMetadata(): Promise<Metadata> {
+  if (await currentUser()) return {};
+  return {
+    title: { absolute: `${SITE_NAME}: ${SITE_TAGLINE}` },
+    description: SITE_DESCRIPTION,
+    alternates: { canonical: "/" },
+    robots: { index: true, follow: true },
+  };
+}
 
 /**
  * "/" depends on the session. No cookie, an unknown token or an expired session

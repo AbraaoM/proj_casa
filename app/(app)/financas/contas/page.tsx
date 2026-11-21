@@ -37,7 +37,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                 className="group flex items-baseline justify-between gap-4 py-5 transition-colors duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
               >
                 <div className="min-w-0">
-                  <p className="break-words text-lg transition-colors duration-300 group-hover:text-accent-dark dark:group-hover:text-accent-light">{account.name}</p>
+                  <p className="break-words text-lg transition-colors duration-300 group-hover:text-accent-dark dark:hover:text-accent-light dark:group-hover:text-accent-light">{account.name}</p>
                   <p className="mt-1 text-sm text-ink-muted">
                     {ACCOUNT_KIND_LABELS[account.kind]}
                     {account.last_check && account.last_check.difference_cents !== 0 ? " · saldo não confere" : ""}

@@ -135,6 +135,6 @@ export async function runAgentTurn(turn: AgentTurn): Promise<AgentReply> {
 export function modelFailureText(error: unknown): string {
   const status = APICallError.isInstance(error) ? error.statusCode : (error as { lastError?: unknown })?.lastError && APICallError.isInstance((error as { lastError: unknown }).lastError) ? ((error as { lastError: APICallError }).lastError.statusCode) : undefined;
   if (status === 429) return "Cheguei no limite do plano de IA agora. Tente de novo em 1 minuto.";
-  if (status === 401 || status === 403) return "A chave do provedor de IA foi recusada. Quem administra a Casa precisa conferir em Agentes → Bot.";
+  if (status === 401 || status === 403) return "A chave do provedor de IA foi recusada. Quem administra a família precisa conferir em Agentes → Bot.";
   return "Não consegui pensar numa resposta agora. Tente de novo em instantes.";
 }

@@ -25,7 +25,7 @@ export function webhookDeps(sql: Sql, runtime: BotRuntime, options: { fetch?: Fe
     telegram: telegramClient(runtime.telegramToken ?? "", options.fetch),
     botUsername: runtime.botUsername,
     async model(): Promise<ModelResult> {
-      if (!runtime.ai.ok) return { ok: false, message: `O bot ainda não está pronto: ${runtime.ai.message} Quem administra a Casa ajusta em Agentes → Bot.` };
+      if (!runtime.ai.ok) return { ok: false, message: `O bot ainda não está pronto: ${runtime.ai.message} Quem administra a família ajusta em Agentes → Bot.` };
       try {
         return { ok: true, model: await createModel(runtime.ai.value, options.factories ?? SDK_FACTORIES) };
       } catch {

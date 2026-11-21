@@ -50,7 +50,7 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
         {ready && attentionCount > 0 ? (
           <p
             className={`font-display text-7xl leading-none tracking-tight md:text-8xl ${
-              calm ? "text-accent" : "text-black dark:text-white"
+              calm ? "text-accent-dark dark:text-accent-light" : "text-black dark:text-white"
             }`}
           >
             {attentionCount}
@@ -58,7 +58,7 @@ export function HomeDashboard({ data, query = "" }: { data: DashboardData; query
         ) : null}
         <h1
           className={`font-display text-3xl leading-tight tracking-tight md:text-4xl ${
-            ready && attentionCount === 0 ? "text-accent" : ""
+            ready && attentionCount === 0 ? "text-accent-dark dark:text-accent-light" : ""
           } ${ready && attentionCount > 0 ? "mt-3" : ""}`}
         >
           {headline(data, attentionCount)}

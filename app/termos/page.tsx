@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 
-export const metadata: Metadata = { title: "Termos de uso (rascunho)", description: "Regras de uso do app, do teste de 14 dias e das famílias." };
+export const metadata: Metadata = { title: "Termos de uso (rascunho)", description: "Regras de uso do app, do teste de 14 dias e das famílias.", alternates: { canonical: "/termos" }, robots: { index: true, follow: true } };
 
 export default function TermsPage() {
   return (

@@ -63,7 +63,7 @@ export default async function AgendaPage({ searchParams }: Props) {
       <p className="mt-3 max-w-xl text-sm text-ink-muted">
         Os próximos 14 dias do Google Agenda de quem conectou a própria conta. Para marcar um horário, peça ao seu agente.
       </p>
-      {notice ? <p className="mt-4 text-sm text-accent">{notice}</p> : null}
+      {notice ? <p className="mt-4 text-sm text-accent-dark dark:text-accent-light">{notice}</p> : null}
       {!link.configured && !link.connected ? <p className="mt-4 max-w-xl text-sm text-ink-muted">{NOTICES.unconfigured}</p> : null}
 
       <div className="mt-6 flex flex-wrap items-center gap-3">

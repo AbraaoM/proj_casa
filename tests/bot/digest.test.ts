@@ -18,7 +18,7 @@ function item(attention: AttentionItem["attention"], title: string, extra: Parti
 
 describe("daily summary", () => {
   test("nothing pending: one short line, no buttons", () => {
-    expect(buildDigest([])).toEqual({ text: "Bom dia! Nada pedindo atenção na Casa hoje.", buttons: [] });
+    expect(buildDigest([])).toEqual({ text: "Bom dia! Nada pedindo atenção em casa hoje.", buttons: [] });
   });
 
   test("overdue, today and soon, with a Feito button for what is due", () => {

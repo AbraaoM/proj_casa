@@ -48,9 +48,9 @@ export function buildDigest(items: AttentionItem[], routines: DigestRoutine[] = 
   const today = generic.filter((item) => item.attention === "due_today");
   const soon = generic.filter((item) => item.attention === "upcoming");
   if (overdue.length + today.length + soon.length + house.length === 0) {
-    return { text: "Bom dia! Nada pedindo atenção na Casa hoje.", buttons: [] };
+    return { text: "Bom dia! Nada pedindo atenção em casa hoje.", buttons: [] };
   }
-  const parts = ["Bom dia! Hoje na Casa:"];
+  const parts = ["Bom dia! Hoje em casa:"];
   let budget = DIGEST_MAX_LINES;
   const section = <T,>(title: string, list: T[], render: (entry: T) => string) => {
     if (list.length === 0 || budget <= 0) return;

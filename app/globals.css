@@ -5,9 +5,11 @@
 @theme {
   --color-soft-black: #0a0a0a;
   --color-soft-white: #fafafa;
-  --color-accent: #10b981;
-  --color-accent-light: #34d399;
-  --color-accent-dark: #059669;
+  /* Amethyst. One place for the accent. Fill: black text on it is 4.8:1 (AA), it is 3.9:1 on white and 4.8:1 on soft black for borders and focus rings.
+     Text: accent-dark on light backgrounds is 6.8:1 on white, accent-light on dark backgrounds is 9.4:1 on soft black. */
+  --color-accent: #9966cc;
+  --color-accent-light: #c4a3ee;
+  --color-accent-dark: #6d28d9;
   --color-ink-muted: #6b7280;
   --color-ink-faint: #9ca3af;
   --color-line: #e5e7eb;

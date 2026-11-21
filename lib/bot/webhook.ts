@@ -24,10 +24,10 @@ export type WebhookDeps = {
 };
 
 export const COPY = {
-  notLinked: "Ainda não conheço você. Abra a Casa, toque em Conectar Telegram e volte aqui.",
-  linkExpired: "Esse link já foi usado ou expirou. Toque em Conectar Telegram na Casa de novo.",
+  notLinked: "Ainda não conheço você. Abra a Ametista, toque em Conectar Telegram e volte aqui.",
+  linkExpired: "Esse link já foi usado ou expirou. Toque em Conectar Telegram na Ametista de novo.",
   linked: (username: string, agentName: string) =>
-    `Pronto, ${username}: sua conta da Casa está ligada. Hoje meu nome é ${agentName}. Se quiser outro, é só dizer como quer me chamar.`,
+    `Pronto, ${username}: sua conta da Ametista está ligada. Hoje meu nome é ${agentName}. Se quiser outro, é só dizer como quer me chamar.`,
   digestOff: "Certo, não mando mais o resumo do dia neste chat.",
   digestOn: "Certo, mando o resumo neste chat: de manhã o que pede atenção, e às 22h quem fez o quê.",
   privateFirst: "Me mande um oi no privado primeiro, para eu poder responder por lá.",
@@ -224,7 +224,7 @@ async function handleCallback(query: NonNullable<TgUpdate["callback_query"]>, de
     await recordActivity(caller, "telegram", "tool marcar_feito", status);
   }
   const result = raw as DoneResult | null;
-  if (!result?.event) return void (await answer("Não consegui marcar. Abra a Casa para ver."));
+  if (!result?.event) return void (await answer("Não consegui marcar. Abra a Ametista para ver."));
   await answer(result.idempotent_replay ? "Já estava marcado." : `${result.event.title}: feito`);
   const chatId = query.message?.chat.id;
   if (result.ask_cost && !result.idempotent_replay && chatId) {

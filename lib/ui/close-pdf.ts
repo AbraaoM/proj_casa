@@ -47,7 +47,7 @@ function linesOf(close: MonthClose): PdfLine[] {
   const spentName = monthLabel(close.month);
   const nextName = monthLabel(close.next_month);
   const lines: PdfLine[] = [
-    { text: "Casa", size: 22, gap: 8 },
+    { text: "Ametista", size: 22, gap: 8 },
     { text: `Fechamento de ${spentName}`, size: 16, gap: 4 },
     { text: `Fechado em ${formatDate(close.closed_on)}`, size: 11, gap: 18 },
     { text: "O mês", size: 13, gap: 8 },

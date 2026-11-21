@@ -19,7 +19,7 @@ function Status({ state }: { state: BotActionState }) {
   if (state.idle || !state.message) return null;
   return (
     <div aria-live="polite" className="space-y-1">
-      <p className={state.ok ? "text-sm text-accent" : "text-sm text-black dark:text-white"}>{state.message}</p>
+      <p className={state.ok ? "text-sm text-accent-dark dark:text-accent-light" : "text-sm text-black dark:text-white"}>{state.message}</p>
       {state.details?.map((line) => (
         <p key={line} className="text-sm text-ink-muted">
           {line}

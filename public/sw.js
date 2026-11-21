@@ -1,4 +1,4 @@
-/* Casa shell. Pages stay on the network so a tap is never served from an old copy.
+/* Ametista shell. Pages stay on the network so a tap is never served from an old copy.
    Opening the installed app with no connection shows the offline page instead of the browser error. */
 const CACHE = "casa-shell-v1";
 

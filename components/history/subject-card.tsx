@@ -32,7 +32,7 @@ export function SubjectCard({
         className="group block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
       >
         <div className="flex min-h-11 items-baseline justify-between gap-4">
-          <h2 className={`font-display leading-tight tracking-tight ${compact ? "text-2xl" : "text-3xl"} transition-colors duration-300 group-hover:text-accent-dark dark:group-hover:text-accent-light`}>
+          <h2 className={`font-display leading-tight tracking-tight ${compact ? "text-2xl" : "text-3xl"} transition-colors duration-300 group-hover:text-accent-dark dark:hover:text-accent-light dark:group-hover:text-accent-light`}>
             {title}
           </h2>
           <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-ink-faint transition-transform duration-300 group-hover:translate-x-0.5" strokeWidth={1.75} />

@@ -92,7 +92,7 @@ export function InstallBanner() {
   return (
     <div className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center gap-3 rounded-xl border border-line bg-soft-white px-4 py-3 shadow-sm dark:border-line-dark dark:bg-soft-black md:hidden">
       <p className="min-w-0 flex-1 text-sm">
-        {kind === "button" ? "Abra a Casa pela tela inicial, sem o navegador." : "No iPhone: Compartilhar, depois Adicionar à Tela de Início."}
+        {kind === "button" ? "Abra a Ametista pela tela inicial, sem o navegador." : "No iPhone: Compartilhar, depois Adicionar à Tela de Início."}
       </p>
       {kind === "button" ? (
         <button type="button" className={buttonClass} onClick={() => void install()}>
@@ -115,7 +115,7 @@ export function InstallRow() {
     <div className="mt-8 border-t border-line pt-4 dark:border-line-dark">
       <p className="text-sm text-ink-muted">
         {kind === "button"
-          ? "Instale a Casa no telefone. Ela abre em tela cheia, como um app."
+          ? "Instale a Ametista no telefone. Ela abre em tela cheia, como um app."
           : "No iPhone, toque em Compartilhar e depois em Adicionar à Tela de Início."}
       </p>
       {kind === "button" ? (

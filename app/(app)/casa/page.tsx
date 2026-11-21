@@ -87,7 +87,7 @@ export default async function HousePage({ searchParams }: { searchParams: Promis
               <div key={block.key} className="min-w-0 border-t border-line pt-4 dark:border-line-dark">
                 {block.href ? (
                   <Link href={block.href} className="group flex min-h-11 items-baseline justify-between gap-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent">
-                    <h3 className="font-display text-2xl leading-tight tracking-tight transition-colors duration-300 group-hover:text-accent-dark dark:group-hover:text-accent-light">
+                    <h3 className="font-display text-2xl leading-tight tracking-tight transition-colors duration-300 group-hover:text-accent-dark dark:hover:text-accent-light dark:group-hover:text-accent-light">
                       {block.title}
                     </h3>
                     <span className="flex items-center gap-1 text-sm text-ink-muted">

@@ -66,7 +66,7 @@ export default async function AgentsPage({ searchParams }: Props) {
           <>
             <p className="mt-3 text-sm text-ink-muted">
               {agenda?.configured
-                ? "Um toque pede permissão ao Google. A Casa lê e cria compromissos na sua agenda. O token fica cifrado."
+                ? "Um toque pede permissão ao Google. A Ametista lê e cria compromissos na sua agenda. O token fica cifrado."
                 : "O servidor ainda não tem o cliente OAuth do Google."}
             </p>
             <div className="mt-4">

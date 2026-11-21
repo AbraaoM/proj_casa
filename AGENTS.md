@@ -1,4 +1,4 @@
-# Home Organizer System — instructions for agents
+# Ametista (home organizer) — instructions for agents
 
 Personal app to help organize and manage my home life.  
 Focus on simplicity, clarity, beauty, and daily use on the phone.
@@ -30,10 +30,11 @@ Follow the visual identity defined at https://brand-identity.abraaomoreira.dev/
   - Pure White `#ffffff`
   - Soft Black `#0a0a0a`
   - Soft White `#fafafa`
-- **Accent color** (chosen):
-  - Primary accent: Emerald `#10b981` (with light `#34d399` and dark `#059669` variations as needed)
-  - **Justification**: Emerald evokes health, care, growth, and natural balance — fitting for pet health, family care, home maintenance, and overall vitality of the household. It provides high contrast against the monochrome base while remaining vibrant and modern.
-  - Once chosen and justified, keep consistency across buttons, links, highlights, and interactive states.
+- **Accent color** (chosen): **Amethyst** `#9966cc`, the one precious stone of the product (the name is Ametista; the mark is a faceted amethyst gem shaped like a house).
+  - Tokens live in one place, `app/globals.css`: `accent` `#9966cc` (fills, borders, focus rings), `accent-light` `#c4a3ee` (hover fills and text on dark backgrounds), `accent-dark` `#6d28d9` (text on light backgrounds, deep facets).
+  - Contrast (WCAG AA): black text on `accent` is 4.8:1; `accent-dark` text on white is 6.8:1; `accent-light` text on soft black is 9.4:1; `accent` is 3.9:1 on white and 4.8:1 on soft black for borders and focus rings. Text in the accent colour is always the pair `text-accent-dark dark:text-accent-light`. Never use plain `text-accent` for text.
+  - **Justification**: amethyst is a precious, calm, protective stone. It suits a product that guards a family's routine and data, stays distinct from the green of health apps, and keeps high contrast against the monochrome base. The previous emerald (`#10b981`) was retired because it failed AA as text on white.
+  - Keep consistency across buttons, links, highlights, and interactive states. Do not add hard-coded hex colours in components: use the tokens (the logo and icons are the only exception).
 - **Neutrals**:
   - Text Gray `#6b7280`
   - Light Gray `#9ca3af`

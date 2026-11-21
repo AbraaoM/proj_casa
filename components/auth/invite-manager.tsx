@@ -46,7 +46,7 @@ export function InviteManager({ invites }: { invites: InviteRow[] }) {
       </button>
       {state ? (
         <div className="mt-4" aria-live="polite">
-          <p className={state.ok ? "text-sm text-accent" : "text-sm"}>{state.message}</p>
+          <p className={state.ok ? "text-sm text-accent-dark dark:text-accent-light" : "text-sm"}>{state.message}</p>
           {state.link ? (
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
               <code className="min-w-0 flex-1 break-all rounded-md border border-line px-3 py-3 text-xs dark:border-line-dark">{state.link}</code>

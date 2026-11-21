@@ -18,7 +18,7 @@ import { householdClock } from "@/lib/services/settings";
 import { todayInTimeZone } from "@/lib/domain/dates";
 
 export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"] as const;
-export const SERVER_INFO = { name: "casa", title: "Casa", version: "1.0.0" };
+export const SERVER_INFO = { name: "casa", title: "Ametista", version: "1.0.0" };
 
 const INSTRUCTIONS = PLAYBOOK;
 

@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Criar minha família",
   description: "Crie a conta e a sua família. 14 dias grátis, sem cartão.",
+  alternates: { canonical: "/cadastrar" },
+  robots: { index: true, follow: true },
 };
 
 export default async function SignUpPage() {

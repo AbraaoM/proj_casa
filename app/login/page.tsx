@@ -19,7 +19,7 @@ export default async function LoginPage() {
   return (
     <main className="mx-auto flex min-h-full w-full max-w-md flex-col px-5 py-8">
       <div className="flex items-center justify-between gap-6">
-        <Link href="/" aria-label="Casa, página inicial" className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        <Link href="/" aria-label="Ametista, página inicial" className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
           <Logo markClassName="h-9 w-9" textClassName="text-3xl" />
         </Link>
         <ThemeToggle />
@@ -50,6 +50,12 @@ export default async function LoginPage() {
           <div className="mt-8">
             <LoginForm action={loginAction} />
           </div>
+          <p className="mt-8 text-sm text-ink-muted">
+            Ainda não tem uma família?{" "}
+            <Link href="/cadastrar" className="underline underline-offset-2">
+              Comece 14 dias grátis
+            </Link>
+          </p>
         </>
       )}
       <Link
@@ -57,7 +63,7 @@ export default async function LoginPage() {
         className="mt-10 inline-flex min-h-11 items-center gap-2 self-start rounded-md text-sm text-ink-muted transition-colors duration-300 hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent dark:hover:text-white"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Conhecer o Casa
+        Conhecer a Ametista
       </Link>
     </main>
   );

@@ -147,7 +147,7 @@ export async function consumeLinkCode(sql: Sql, code: string): Promise<string | 
 
 export type TelegramLink = { userId: string; username: string; telegramUserId: number; privateChatId: number | null };
 
-/** Links a Telegram account to a Casa account, replacing any older link of either. */
+/** Links a Telegram account to an Ametista account, replacing any older link of either. */
 export async function linkTelegram(
   sql: Sql,
   input: { userId: string; telegramUserId: number; privateChatId: number | null; telegramName: string | null },
