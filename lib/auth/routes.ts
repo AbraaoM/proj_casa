@@ -4,7 +4,7 @@
  * "/" is public: the page itself shows the landing when there is no valid session.
  */
 
-const PUBLIC_PATHS = new Set(["/", "/login", "/cadastrar", "/privacidade", "/termos", "/manifest.webmanifest", "/sw.js", "/offline.html"]);
+const PUBLIC_PATHS = new Set(["/", "/login", "/cadastrar", "/privacidade", "/termos", "/manifest.webmanifest", "/sw.js", "/offline.html", "/robots.txt", "/sitemap.xml", "/opengraph-image"]);
 
 export type ProxyDecision = "pass" | "login";
 

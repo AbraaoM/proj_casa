@@ -6,6 +6,9 @@ describe("proxy decision", () => {
     expect(proxyDecision("/", false)).toBe("pass");
     expect(proxyDecision("/login", false)).toBe("pass");
     expect(proxyDecision("/manifest.webmanifest", false)).toBe("pass");
+    expect(proxyDecision("/robots.txt", false)).toBe("pass");
+    expect(proxyDecision("/sitemap.xml", false)).toBe("pass");
+    expect(proxyDecision("/opengraph-image", false)).toBe("pass");
     expect(proxyDecision("/sw.js", false)).toBe("pass");
     expect(proxyDecision("/offline.html", false)).toBe("pass");
   });

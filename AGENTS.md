@@ -126,3 +126,11 @@ The person will use this daily. A broken screen or wrong recommendation creates 
 ## Architecture
 Keep separation of responsibilities. Business logic must not be mixed with the UI.  
 Agent operations should go through well-defined service layers that both the API routes and (if needed) UI actions can use.
+
+
+## Hosts (Ametista)
+
+- Product host: `https://ametista.abraaomoreira.dev` (same Vercel project as before, `NEXT_PUBLIC_SITE_URL` overrides it). The wildcard `*` ALIAS on the zone already points the subdomain to Vercel.
+- Old host `casa.abraaomoreira.dev` keeps working for machines. `next.config.ts` redirects its **pages** with 308 to the new host, keeping path and query. These stay on the old host without redirect: `/api/*` (agent API, MCP, cron, Telegram webhook), `/_next/*`, and the PWA files (manifest, `sw.js`, `offline.html`, icons).
+- Do not point the Telegram webhook, the cron jobs or an agent's `CASA_BASE_URL` at a redirect. Telegram does not follow redirects and a 308 on a POST is not honoured by every client. The webhook already registered keeps the old host. New families register their own `/api/telegram/webhook/<familyId>` from whichever host serves the page, so tell them to open the product on the new host.
+- Cookies are host-only. A session opened on the old host does not exist on the new one: people sign in again once. Server Actions accept both origins (`serverActions.allowedOrigins`).
